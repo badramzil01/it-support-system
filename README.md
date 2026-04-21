@@ -95,8 +95,8 @@ php artisan tinker
 
 ## 👥 Team
 
-* Badr Amzil
-* (Add your team members)
+* Badr 
+* Khadija
 
 ---
 
