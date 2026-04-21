@@ -1,59 +1,117 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# 🤖 Intelligent IT Support Automation System
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+## 📌 Project Overview
 
-## About Laravel
+This project is a Final Year Project (PFE) that aims to automate IT support using chatbot logic, artificial intelligence, and workflow automation.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Users can send IT problems through a chat interface, and the system will automatically analyze and provide solutions.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+---
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## 🎯 Objectives
 
-## Learning Laravel
+* Automate IT support processes
+* Reduce manual workload
+* Provide fast and intelligent responses
+* Build a real-world enterprise system
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+---
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## 🏗️ System Architecture
 
-## Laravel Sponsors
+User → Bot (Azure) → n8n → Laravel API → Database / AI → Jira
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+---
 
-### Premium Partners
+## ⚙️ Technologies Used
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+* **Backend**: Laravel (PHP)
+* **Database**: MySQL
+* **Automation**: n8n
+* **AI**: OpenAI API
+* **Bot**: Azure Bot Service
+* **Ticketing**: Jira API
+* **Frontend**: Bootstrap / Vue.js
 
-## Contributing
+---
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## 🧠 Core Features
 
-## Code of Conduct
+* 🔍 Search in Knowledge Base
+* 🤖 AI-generated solutions (OpenAI)
+* 🎫 Automatic ticket creation (Jira)
+* 💬 Chatbot interaction
+* 📊 Admin dashboard (statistics & monitoring)
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+---
 
-## Security Vulnerabilities
+## 🗄️ Database Structure
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+Main tables:
 
-## License
+* users
+* messages
+* tickets
+* knowledge_base
+* notifications
+* categories
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+---
+
+## 🔄 Workflow
+
+1. User sends a message
+2. Bot sends request to Laravel API
+3. System checks knowledge base
+4. If found → return solution
+5. If not found → generate solution using AI
+6. Create ticket in Jira
+7. Send response back to user
+8. Save new solution in database
+
+---
+
+## 🚀 Installation
+
+```bash
+git clone https://github.com/badramzil01/it-support-system.git
+cd it-support-system
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate
+php artisan serve
+```
+
+---
+
+## 🧪 Testing
+
+```bash
+php artisan tinker
+```
+
+---
+
+## 👥 Team
+
+* Badr Amzil
+* (Add your team members)
+
+---
+
+## 📌 Future Improvements
+
+* Multi-language support
+* Advanced AI classification
+* Real-time notifications
+* SLA management
+* Performance analytics
+
+---
+
+## 📄 License
+
+This project is for educational purposes (PFE).
+
+---
