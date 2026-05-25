@@ -6,23 +6,59 @@ use Illuminate\Database\Eloquent\Model;
 
 class Ticket extends Model
 {
+
     protected $fillable = [
+
+        'conversation_id',
+
+        'user_id',
+
         'message_id',
+
+        'title',
+
+        'description',
+
         'jira_ticket_id',
+
         'solution',
+
         'source',
-        'status'
+
+        'status',
+
+        'priority',
+
+        'category',
+
+        'confidence',
+
+        'feedback',
+
+        'is_escalated'
+
     ];
 
-    // 🔗 relation avec Message
+
+    // =====================================================
+    // ✅ RELATION MESSAGE
+    // =====================================================
     public function message()
     {
+
         return $this->belongsTo(Message::class);
+
     }
 
-    // 🔗 relation avec Notifications
+
+    // =====================================================
+    // ✅ RELATION NOTIFICATIONS
+    // =====================================================
     public function notifications()
     {
+
         return $this->hasMany(Notification::class);
+
     }
+
 }
