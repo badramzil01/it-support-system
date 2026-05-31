@@ -30,8 +30,22 @@ class AuthenticatedSessionController extends Controller
         // ✅ regenerate session
         $request->session()->regenerate();
 
-        // ✅ redirect to chatbot
-        return redirect('/chat');
+        $user = Auth::user();
+
+        if ($user->hasRole('admin')) {
+            return redirect()->route('admin.dashboard');
+        }
+
+        if ($user->hasRole('support')) {
+            return redirect()->route('support.dashboard');
+        }
+
+        if ($user->hasRole('employee')) {
+            
+            // ✅ redirect to chatbot
+            return redirect('/chat');
+        }
+
     }
 
     /**
