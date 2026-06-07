@@ -29,6 +29,8 @@ class Conversation extends Model
         // 🎫 CURRENT TICKET ID
         'current_ticket_id',
 
+        'last_read_by_support_at',
+
         // 📊 CONVERSATION STATUS
         'conversation_status'
     ];
@@ -41,6 +43,16 @@ class Conversation extends Model
     public function messages()
     {
         return $this->hasMany(Message::class);
+    }
+
+    public function latestMessage()
+    {
+        return $this->hasOne(Message::class)->latestOfMany();
+    }
+
+    public function tickets()
+    {
+        return $this->hasMany(Ticket::class);
     }
 
     // =========================================

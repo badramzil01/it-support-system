@@ -3,40 +3,73 @@
 namespace App\Http\Controllers\ItSupportEquipe;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\Ticket;
 use App\Models\Conversation;
-
+use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
     public function index()
     {
-        return view('support.dashboard', [
-            'tickets_open' => Ticket::where('status','open')->count(),
-            'tickets_escalated' => Ticket::where('is_escalated',1)->count(),
-            'my_tickets' => Ticket::where('user_id', auth()->id())->count(),
-        ]);
+        $stats = [
+            'totalTickets' => Ticket::count(),
 
+            'openTickets' => Ticket::where('status', 'open')->count(),
+
+            'closedTickets' => Ticket::where('status', 'closed')->count(),
+
+            'escalatedTickets' => Ticket::where('is_escalated', 1)->count(),
+
+            'highPriorityTickets' => Ticket::where('priority', 'high')->count(),
+
+            'todayConversations' => Conversation::whereDate(
+                'created_at',
+                Carbon::today()
+            )->count(),
+        ];
+
+        $recentTickets = Ticket::latest()
+            ->take(10)
+            ->get();
+
+        return view(
+            'support.dashboard',
+            compact(
+                'stats',
+                'recentTickets'
+            )
+        );
     }
-    public function show($id)
+
+    public function listeTickets()
     {
-        $ticket = Ticket::findOrFail($id);
+        $tickets = Ticket::latest()
+            ->paginate(20);
 
-        return view('support.tickets.show', compact('ticket'));
-    }
-
-    public function ListeTickets()
-    {
-        $tickets = Ticket::where('user_id', auth()->id())->latest()->get();;
-
-        return view('support.tickets', compact('tickets'));
+        return view(
+            'support.tickets',
+            compact('tickets')
+        );
     }
 
     public function listeConversations()
     {
-        $conversations = Conversation::all();
+        $conversations = Conversation::latest()
+            ->paginate(20);
 
-        return view('support.conversations', compact('conversations'));
+        return view(
+            'support.conversations',
+            compact('conversations')
+        );
+    }
+
+    public function show($id)
+    {
+        $ticket = Ticket::findOrFail($id);
+
+        return view(
+            'support.tickets.show',
+            compact('ticket')
+        );
     }
 }

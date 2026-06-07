@@ -407,6 +407,17 @@
             font-size: 15px;
             line-height: 1.9;
         }
+        .msg-row.support .msg-bubble {
+            background: #ecfdf5;
+            border: 1px solid #bbf7d0;
+            border-top-left-radius: 4px;
+            box-shadow: 0 1px 4px rgba(0,0,0,.06);
+            color: #064e3b;
+            font-weight: 700;
+            font-size: 15px;
+            line-height: 1.9;
+        }
+        .msg-av.support { background: linear-gradient(135deg, #047857, #10b981); color: white; }
         .msg-row.user .msg-bubble {
             background: var(--blue);
             color: white;
@@ -426,7 +437,8 @@
         .msg-bubble pre { background: #0f172a; border-radius: 9px; padding: 11px 13px; margin: 9px 0; overflow-x: auto; }
         .msg-bubble pre code { background: none; border: none; color: #e2e8f0; font-size: 12.5px; padding: 0; }
         .msg-bubble strong { color: var(--blue); font-weight: 700; }
-        .msg-row.bot .msg-bubble strong { color: #2563eb; font-weight: 800; }
+        .msg-row.bot .msg-bubble strong,
+        .msg-row.support .msg-bubble strong { color: #2563eb; font-weight: 800; }
         .msg-row.user .msg-bubble strong { color: #bfdbfe; }
         .msg-bubble blockquote { border-left: 3px solid var(--blue-mid); padding-left: 11px; margin: 7px 0; color: var(--text-3); font-style: italic; }
         .msg-bubble img.chat-img { max-width: 100%; max-height: 160px; width: auto; border-radius: 8px; margin-top: 6px; display: block; object-fit: cover; }
@@ -628,6 +640,7 @@
         body.dark .ctx-menu,
         body.dark .user-dropdown,
         body.dark .msg-row.bot .msg-bubble,
+        body.dark .msg-row.support .msg-bubble,
         body.dark .typing-bub,
         body.dark .chip,
         body.dark .q-chip,
@@ -636,6 +649,7 @@
             background: var(--sidebar-bg);
         }
         body.dark .msg-row.bot .msg-bubble { color: #bfdbfe; }
+        body.dark .msg-row.support .msg-bubble { color: #bbf7d0; }
         body.dark .msg-row.user .msg-bubble { color: white; }
         body.dark textarea#msg { color: var(--text); }
 
@@ -650,6 +664,11 @@
             font-weight: 700;
             font-size: 15px;
             line-height: 1.85;
+            box-shadow: 0 10px 28px rgba(15,23,42,.08);
+        }
+        .msg-row.support .msg-bubble {
+            border-radius: 16px;
+            border-top-left-radius: 5px;
             box-shadow: 0 10px 28px rgba(15,23,42,.08);
         }
         .msg-row.bot .msg-bubble:hover { box-shadow: 0 14px 32px rgba(15,23,42,.11); }
@@ -948,6 +967,7 @@ let conversations = {};
 let activeId = null;
 let ctxTargetId = null;
 const flags = { urgent: false, escalated: false, ticket: false };
+let syncTimer = null;
 
 const msgsInner = document.getElementById('msgsInner');
 const msgsWrap = document.getElementById('msgsWrap');
@@ -1082,6 +1102,61 @@ function normalizeWebhookData(data) {
         meta: metaSource
     };
 }
+
+function normalizeBackendMessage(message) {
+    const sender = String(message.sender || '').toLowerCase();
+    const role = sender === 'user'
+        ? 'user'
+        : (sender === 'support' || sender === 'agent' ? 'support' : 'bot');
+    const imagePath = message.image_path || null;
+    const image = imagePath && /^https?:\/\//.test(imagePath)
+        ? imagePath
+        : (imagePath && imagePath.startsWith('/') ? imagePath : (imagePath ? `/storage/${imagePath}` : null));
+
+    return {
+        id: message.id,
+        role,
+        text: message.content || message.response || '',
+        image,
+        ts: message.created_at ? new Date(message.created_at).getTime() : Date.now(),
+        status: message.status || null,
+        conversationId: message.conversation_id || null,
+        source: message.source || null
+    };
+}
+
+async function syncBackendMessages(showNotice = false) {
+    if (!activeId || !conversations[activeId]?.backendId) return;
+
+    const c = conversations[activeId];
+
+    try {
+        const res = await fetch(`/api/messages/${c.backendId}`, {
+            headers: { 'Accept': 'application/json' }
+        });
+
+        if (!res.ok) return;
+
+        const data = await res.json();
+
+        if (!data.success || !Array.isArray(data.messages)) return;
+
+        const before = c.messages?.length || 0;
+        c.messages = data.messages.map(normalizeBackendMessage);
+        c.updatedAt = Date.now();
+        save();
+
+        if (activeId && conversations[activeId]?.backendId === c.backendId) {
+            renderMessages(c.messages);
+        }
+
+        if (showNotice && c.messages.length > before) {
+            showToast('Nouveau message support recu', 'ok');
+        }
+    } catch (err) {
+        console.warn('syncBackendMessages failed', err);
+    }
+}
 function renderBotMarkdown(text) {
     if (!cleanText(text)) return '';
     const html = marked.parse(text);
@@ -1202,12 +1277,12 @@ function appendMsg(msg, animated = true) {
 
     const av = msg.role === 'bot'
         ? `<div class="msg-av bot">🤖</div>`
-        : `<div class="msg-av user">${INITIALS}</div>`;
+        : (msg.role === 'support' ? `<div class="msg-av support">S</div>` : `<div class="msg-av user">${INITIALS}</div>`);
 
     let content = '';
     if (msg.image) content += `<img class="chat-img" src="${msg.image}" alt="Screenshot">`;
-    if (cleanText(msg.text)) content += msg.role === 'bot' ? renderBotMarkdown(msg.text) : esc(msg.text);
-    if (!content) content = msg.role === 'bot' ? '<p>Reponse IA indisponible. Merci de reessayer.</p>' : '';
+    if (cleanText(msg.text)) content += (msg.role === 'bot' || msg.role === 'support') ? renderBotMarkdown(msg.text) : esc(msg.text);
+    if (!content) content = (msg.role === 'bot' || msg.role === 'support') ? '<p>Message indisponible. Merci de reessayer.</p>' : '';
 
     let flagHtml = '';
     if (msg.isUrgent) flagHtml += '<span class="mf mf-urgent">🚨 URGENT</span>';
@@ -1233,7 +1308,7 @@ function appendMsg(msg, animated = true) {
     msgsInner.appendChild(meta);
 
     if (animated) scrollBot();
-    if (msg.role === 'bot') enhanceCodeBlocks(row);
+    if (msg.role === 'bot' || msg.role === 'support') enhanceCodeBlocks(row);
 }
 
 function createNewConv() {
@@ -1263,6 +1338,7 @@ function loadConv(id) {
     save();
     renderConvList();
     renderMessages(conversations[id]?.messages || []);
+    syncBackendMessages();
     closeSidebar();
 }
 function addMsgToConv(msg) {
@@ -1410,6 +1486,7 @@ async function sendMessage() {
 
         addMsgToConv(botMsg);
         appendMsg(botMsg);
+        syncBackendMessages();
 
         if (botMsg.hasTicket || botMsg.ticketId || botMsg.jiraTicketId) {
             showToast(`Ticket créé avec succès${botMsg.jiraTicketId ? ' : ' + botMsg.jiraTicketId : ''}`, 'ok');
@@ -1696,9 +1773,11 @@ window.addEventListener('offline', () => { updateNetworkStatus(); showToast('Vou
     renderFlagsBar();
     if (activeId && conversations[activeId]) {
         renderMessages(conversations[activeId].messages);
+        syncBackendMessages();
     } else {
         showWelcome(true);
     }
+    syncTimer = setInterval(() => syncBackendMessages(true), 15000);
 })();
 </script>
 </body>

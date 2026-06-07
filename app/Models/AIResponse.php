@@ -16,6 +16,8 @@ class AIResponse extends Model
 
         'message',
 
+        'user_message',
+
         'ai_response',
 
         'source',

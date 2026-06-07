@@ -1,7 +1,7 @@
 @extends('parts.base')
 
 @section('content')
-@role('admin')
+@if(auth()->user()->getRoleNames() === 'admin')
 <div class="space-y-8">
     <!-- Informations générales -->
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200">
@@ -118,8 +118,8 @@
 </div>
 
 
-@endrole
-@role('support')
+@endif
+@if(auth()->user()->getRoleNames() === 'support')
 <div class="space-y-8">
     <!-- Informations générales -->
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200">
@@ -133,5 +133,5 @@
         </div>
     </div>
 </div>
-@endrole
+@endif
 @endsection

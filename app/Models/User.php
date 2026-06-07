@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -12,23 +11,20 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory,HasRoles, Notifiable;
+    use HasFactory, Notifiable, HasRoles;
 
     /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
+     * Attributs modifiables
      */
     protected $fillable = [
         'name',
         'email',
         'password',
+        'role',
     ];
 
     /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
+     * Attributs cachés
      */
     protected $hidden = [
         'password',
@@ -36,9 +32,7 @@ class User extends Authenticatable
     ];
 
     /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
+     * Casts
      */
     protected function casts(): array
     {
@@ -47,9 +41,48 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
-    
+
+    /**
+     * Relations
+     */
     public function messages()
     {
         return $this->hasMany(Message::class);
+    }
+
+    public function latestMessage()
+    {
+        return $this->hasOne(Message::class)->latestOfMany();
+    }
+
+    /**
+     * Conversations started by the user
+     */
+    public function conversations()
+    {
+        return $this->hasMany(Conversation::class);
+    }
+
+    public function tickets()
+    {
+        return $this->hasMany(Ticket::class);
+    }
+
+    /**
+     * Helpers
+     */
+    public function isAdmin(): bool
+    {
+        return $this->hasRole('admin');
+    }
+
+    public function isSupport(): bool
+    {
+        return $this->hasRole('support');
+    }
+
+    public function isClient(): bool
+    {
+        return !$this->hasRole('admin') && !$this->hasRole('support');
     }
 }

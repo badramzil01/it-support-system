@@ -12,6 +12,13 @@ class KnowledgeBase extends Model
         'problem_keywords',
         'solution',
         'source',
-        'usage_count'
+        'usage_count',
+        'category',
+        'author_id'
     ];
+
+    public function author()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'author_id');
+    }
 }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\AIResponse;
+use Illuminate\Support\Facades\Log;
 
 class AIResponseController extends Controller
 {
@@ -40,10 +41,14 @@ class AIResponseController extends Controller
                 'create_ticket' => 'nullable|boolean',
 
             ]);
-
+            Log::info('SAVE AI RESPONSE REQUEST', [
+            'all' => $request->all()
+            ]);
             $response = AIResponse::create([
 
                 'conversation_id' => $validated['conversation_id'] ?? 0,
+
+                'user_message'    => $request->user_message,
 
                 'user_id' => $validated['user_id'] ?? 1,
 

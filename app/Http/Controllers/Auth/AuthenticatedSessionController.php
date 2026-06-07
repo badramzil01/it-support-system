@@ -32,15 +32,15 @@ class AuthenticatedSessionController extends Controller
 
         $user = Auth::user();
 
-        if ($user->hasRole('admin')) {
+        if ($user->role === 'admin') {
             return redirect()->route('admin.dashboard');
         }
 
-        if ($user->hasRole('support')) {
+        if ($user->role === 'support') {
             return redirect()->route('support.dashboard');
         }
 
-        if ($user->hasRole('employee')) {
+        if ($user->role === 'client') {
             
             // ✅ redirect to chatbot
             return redirect('/chat');

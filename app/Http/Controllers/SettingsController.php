@@ -18,19 +18,24 @@ class SettingsController extends Controller
 
         $integrations = [
             [
-                'name' => 'Stripe',
-                'status' => !empty(env('STRIPE_SECRET')),
-                'key' => env('STRIPE_SECRET'),
-            ],
-            [
                 'name' => 'OpenAI',
                 'status' => !empty(env('OPENAI_API_KEY')),
                 'key' => env('OPENAI_API_KEY'),
             ],
             [
+                'name' => 'Jira',
+                'status' => !empty(env('JIRA_URL')),
+                'key' => env('JIRA_URL'),
+            ],
+            [
                 'name' => 'SMTP',
                 'status' => !empty(env('MAIL_HOST')),
                 'key' => env('MAIL_HOST'),
+            ],
+            [
+                'name' => 'n8n',
+                'status' => !empty(env('N8N_WEBHOOK_URL')),
+                'key' => env('N8N_WEBHOOK_URL'),
             ],
         ];
 
@@ -45,23 +50,16 @@ class SettingsController extends Controller
 
     public function updateGeneral(Request $request)
     {
-        $data = $request->validate([
-        'app_name' => ['required', 'string', 'max:255'],
-        'admin_email' => ['required', 'email'],
-        'timezone' => ['required'],
-        'locale' => ['required'],
+        $request->validate([
+            'app_name' => ['required', 'string', 'max:255'],
+            'admin_email' => ['required', 'email'],
+            'timezone' => ['required'],
+            'locale' => ['required'],
         ]);
-
-        foreach ($data as $key => $value) {
-            Setting::updateOrCreate(
-                ['key' => $key],
-                ['value' => $value]
-            );
-        }
 
         return back()->with(
             'success',
-            'Informations générales mises à jour.'
+            'Informations générales mises à jour avec succès.'
         );
     }
 
@@ -72,12 +70,33 @@ class SettingsController extends Controller
             'api_key' => ['nullable', 'string'],
         ]);
 
-    
         return back()->with(
             'success',
-            'Intégration mise à jour.'
+            'Intégration mise à jour avec succès.'
         );
     }
 
- 
+    /**
+     * Lire les derniers logs Laravel
+     */
+    private function getRecentLogs()
+    {
+        $logFile = storage_path('logs/laravel.log');
+
+        if (!File::exists($logFile)) {
+            return [];
+        }
+
+        $content = File::get($logFile);
+
+        $lines = explode("\n", $content);
+
+        $lines = array_filter($lines);
+
+        return array_slice(
+            array_reverse($lines),
+            0,
+            20
+        );
+    }
 }

@@ -48,10 +48,24 @@ class Message extends Model
         // =====================================
         'status',
 
+        'read_at',
+
+        'support_agent_id',
+        
+ 	   // =====================================
+        // 📊 user_message
+        // =====================================
+        'user_message',
+
+
         // =====================================
         // 🖼 IMAGE
         // =====================================
         'image_path'
+    ];
+
+    protected $casts = [
+        'read_at' => 'datetime',
     ];
 
     // =========================================
@@ -68,6 +82,16 @@ class Message extends Model
     public function ticket()
     {
         return $this->hasOne(Ticket::class);
+    }
+
+    public function triggeredTicket()
+    {
+        return $this->hasOne(Ticket::class, 'trigger_message_id');
+    }
+
+    public function supportAgent()
+    {
+        return $this->belongsTo(User::class, 'support_agent_id');
     }
 
     // =========================================
