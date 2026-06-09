@@ -6,6 +6,13 @@ use App\Http\Controllers\SupportController;
 
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\LogController;
+use App\Http\Controllers\Admin\TicketController as AdminTicketController;
+use App\Http\Controllers\Admin\ConversationController as AdminConversationController;
+use App\Http\Controllers\Admin\KnowledgeBaseController as AdminKnowledgeController;
+use App\Http\Controllers\Admin\NotificationController as AdminNotificationController;
+use App\Http\Controllers\Admin\SettingsController as AdminSettingsController;
+use App\Http\Controllers\Admin\MonitoringController as AdminMonitoringController;
+use App\Http\Controllers\Admin\InternalCommunicationController as AdminInternalCommunicationController;
 
 use App\Http\Controllers\ItSupportEquipe\DashboardController as SupportITDashboardController;
 use App\Http\Controllers\ItSupportEquipe\SupportTicketController;
@@ -18,6 +25,7 @@ use App\Http\Controllers\SupportUI\ConversationController as SupportUIConversati
 use App\Http\Controllers\SupportUI\KnowledgeBaseController as SupportUIKnowledgeController;
 use App\Http\Controllers\SupportUI\NotificationController as SupportUINotificationController;
 use App\Http\Controllers\SupportUI\SettingsController as SupportUISettingsController;
+use App\Http\Controllers\SupportUI\InternalCommunicationController as SupportUIInternalCommunicationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -29,22 +37,17 @@ use App\Http\Controllers\SupportUI\SettingsController as SupportUISettingsContro
 // HOME
 // =====================================================
 Route::get('/', function () {
-
     if (auth()->check()) {
         return redirect('/chat');
     }
-
     return redirect('/login');
-
 });
 
 // =====================================================
 // CHAT
 // =====================================================
 Route::get('/chat', function () {
-
     return view('chat');
-
 })->middleware('auth');
 
 // =====================================================
@@ -57,9 +60,7 @@ Route::post('/webhook/support', [SupportController::class, 'handle'])
 // DEFAULT DASHBOARD
 // =====================================================
 Route::get('/dashboard', function () {
-
     return view('dashboard');
-
 })->middleware(['auth', 'verified'])
   ->name('dashboard');
 
@@ -67,16 +68,9 @@ Route::get('/dashboard', function () {
 // PROFILE
 // =====================================================
 Route::middleware('auth')->group(function () {
-
-    Route::get('/profile', [ProfileController::class, 'edit'])
-        ->name('profile.edit');
-
-    Route::patch('/profile', [ProfileController::class, 'update'])
-        ->name('profile.update');
-
-    Route::delete('/profile', [ProfileController::class, 'destroy'])
-        ->name('profile.destroy');
-
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
 // =====================================================
@@ -87,91 +81,80 @@ Route::middleware(['auth', 'role:admin'])
     ->name('admin.')
     ->group(function () {
 
-        Route::get('/dashboard', [AdminDashboardController::class, 'index'])
-            ->name('dashboard');
+        // Dashboard
+        Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
 
-        Route::get('/notifications', [NotificationController::class, 'index'])
-            ->name('notifications');
+        // Notifications
+        Route::get('/notifications', [AdminNotificationController::class, 'index'])->name('notifications');
+        Route::get('/notifications/unread-count', [AdminNotificationController::class, 'unreadCount'])->name('notifications.unreadCount');
+        Route::post('/notifications/{id}/read', [AdminNotificationController::class, 'markRead'])->name('notifications.read');
+        Route::post('/notifications/read-all', [AdminNotificationController::class, 'markAllRead'])->name('notifications.readAll');
+        Route::delete('/notifications/{id}', [AdminNotificationController::class, 'destroy'])->name('notifications.destroy');
+        Route::delete('/notifications', [AdminNotificationController::class, 'destroyAll'])->name('notifications.destroyAll');
 
-        Route::get('/roles&permissions', [AdminDashboardController::class, 'listeRole'])
-            ->name('role_permissions');
+        // Monitoring
+        Route::get('/monitoring', [AdminMonitoringController::class, 'index'])->name('ui.monitoring.index');
 
-        // ==========================
-        // USERS
-        // ==========================
+        // Tickets
+        Route::get('/tickets', [AdminTicketController::class, 'index'])->name('ui.tickets.index');
+        Route::get('/tickets/{ticket}', [AdminTicketController::class, 'show'])->name('ui.tickets.show');
+        Route::post('/tickets/{ticket}/status', [AdminTicketController::class, 'updateStatus'])->name('ui.tickets.updateStatus');
+        Route::get('/tickets/export/csv', [AdminTicketController::class, 'exportCsv'])->name('ui.tickets.export.csv');
+        Route::get('/tickets/export/excel', [AdminTicketController::class, 'exportExcel'])->name('ui.tickets.export.excel');
 
-        Route::get('/users', [AdminDashboardController::class, 'ListeUsers'])
-            ->name('users.index');
+        // Conversations
+        Route::get('/conversations', [AdminConversationController::class, 'index'])->name('ui.conversations.index');
+        Route::post('/conversations/send', [AdminConversationController::class, 'send'])->name('ui.conversations.send');
+        Route::post('/conversations/tickets', [AdminConversationController::class, 'createTicket'])->name('ui.conversations.tickets.create');
+        Route::post('/conversations/tickets/{ticket}/escalate', [AdminConversationController::class, 'escalate'])->name('ui.conversations.tickets.escalate');
+        Route::get('/support/api/user-panel/{userId}', [\App\Http\Controllers\SupportController::class, 'userPanel'])->name('ui.api.userPanel');
+        Route::get('/support/api/conversation/{convId}', [\App\Http\Controllers\SupportController::class, 'conversationPanel'])->name('ui.api.conversationPanel');
 
-        Route::post('/users/store', [AdminDashboardController::class, 'EnregistrerUser'])
-            ->name('users.store');
+        // Knowledge base
+        Route::get('/knowledge', [AdminKnowledgeController::class, 'index'])->name('ui.knowledge.index');
+        Route::post('/knowledge', [AdminKnowledgeController::class, 'store'])->name('ui.knowledge.store');
+        Route::get('/knowledge/{item}', [AdminKnowledgeController::class, 'show'])->name('ui.knowledge.show');
+        Route::put('/knowledge/{item}', [AdminKnowledgeController::class, 'update'])->name('ui.knowledge.update');
+        Route::delete('/knowledge/{item}', [AdminKnowledgeController::class, 'destroy'])->name('ui.knowledge.destroy');
 
-        Route::put('/users/modifier/{id}', [AdminDashboardController::class, 'ModifierUser'])
-            ->name('users.update');
+        // Knowledge base : page dédiée auteur
+        Route::get('/knowledge-base/authors/{user}', [AdminKnowledgeController::class, 'showAuthor'])->name('ui.knowledge.author');
 
-        Route::delete('/users/{user}/delete', [AdminDashboardController::class, 'SupprimerUser'])
-            ->name('users.delete');
+        // Users
+        Route::get('/users', [AdminDashboardController::class, 'ListeUsers'])->name('ui.users.index');
+        Route::post('/users/store', [AdminDashboardController::class, 'EnregistrerUser'])->name('users.store');
+        Route::put('/users/modifier/{id}', [AdminDashboardController::class, 'ModifierUser'])->name('users.update');
+        Route::delete('/users/{user}/delete', [AdminDashboardController::class, 'SupprimerUser'])->name('users.delete');
 
-        // ==========================
-        // KNOWLEDGE BASE
-        // ==========================
+        // Roles & Permissions
+        Route::get('/roles&permissions', [AdminDashboardController::class, 'listeRole'])->name('role_permissions');
 
-        Route::get('/knowledge_base', [AdminDashboardController::class, 'ListeBase'])
-            ->name('base.index');
+        // Settings
+        Route::prefix('settings')->name('ui.settings.')->group(function () {
+            Route::get('/', [AdminSettingsController::class, 'index'])->name('index');
+            Route::put('/profile', [AdminSettingsController::class, 'updateProfile'])->name('profile.update');
+            Route::put('/password', [AdminSettingsController::class, 'updatePassword'])->name('password.update');
+            Route::put('/appearance', [AdminSettingsController::class, 'updateAppearance'])->name('appearance.update');
+            Route::put('/integrations', [AdminSettingsController::class, 'updateIntegrations'])->name('integrations.update');
+        });
 
-        Route::post('/knowledge_base/store', [AdminDashboardController::class, 'EnregistrerBase'])
-            ->name('base.store');
+        // AI Responses
+        Route::get('/ai_responses', [AdminDashboardController::class, 'ListeRespAi'])->name('respAi.index');
+        Route::post('/ai_responses/store', [AdminDashboardController::class, 'EnregistrerRespAi'])->name('respAi.store');
+        Route::put('/ai_responses/modifier/{id}', [AdminDashboardController::class, 'ModifierRAI'])->name('respAi.update');
+        Route::delete('/ai_responses/{id}/delete', [AdminDashboardController::class, 'SupprimerRai'])->name('respAi.delete');
 
-        Route::put('/knowledge_base/modifier/{id}', [AdminDashboardController::class, 'ModifierBase'])
-            ->name('base.update');
+        // Logs
+        Route::get('/logs', [LogController::class, 'index'])->name('logs');
+        Route::get('/logs/download', [LogController::class, 'download'])->name('logs.download');
 
-        Route::delete('/knowledge_base/{id}/delete', [AdminDashboardController::class, 'SupprimerBase'])
-            ->name('base.delete');
-
-        // ==========================
-        // AI RESPONSES
-        // ==========================
-
-        Route::get('/ai_responses', [AdminDashboardController::class, 'ListeBase'])
-            ->name('respAi.index');
-
-        Route::post('/ai_responses/store', [AdminDashboardController::class, 'EnregistrerBase'])
-            ->name('respAi.store');
-
-        Route::put('/ai_responses/modifier/{id}', [AdminDashboardController::class, 'ModifierBase'])
-            ->name('respAi.update');
-
-        Route::delete('/ai_responses/{id}/delete', [AdminDashboardController::class, 'SupprimerBase'])
-            ->name('respAi.delete');
-
-        // ==========================
-        // LOGS
-        // ==========================
-
-        Route::get('/logs', [LogController::class, 'index'])
-            ->name('logs');
-
-        Route::get('/logs/download', [LogController::class, 'download'])
-            ->name('logs.download');
-
-        // ==========================
-        // SETTINGS
-        // ==========================
-
-        Route::prefix('settings')
-            ->name('settings.')
-            ->group(function () {
-
-                Route::get('/', [SettingsController::class, 'index'])
-                    ->name('index');
-
-                Route::put('/general', [SettingsController::class, 'updateGeneral'])
-                    ->name('general.update');
-
-                Route::put('/integration', [SettingsController::class, 'updateIntegration'])
-                    ->name('integration.update');
-            });
-
+        // Internal Communication
+        Route::get('/internal-communication', [AdminInternalCommunicationController::class, 'index'])->name('ui.internal.index');
+        Route::post('/internal-communication/send', [AdminInternalCommunicationController::class, 'send'])->name('ui.internal.send');
+        Route::get('/internal-communication/api/messages/{userId}', [AdminInternalCommunicationController::class, 'apiMessages'])->name('ui.internal.api.messages');
+        Route::get('/internal-communication/api/team', [AdminInternalCommunicationController::class, 'apiTeam'])->name('ui.internal.api.team');
+        Route::post('/internal-communication/api/mark-read/{userId}', [AdminInternalCommunicationController::class, 'apiMarkRead'])->name('ui.internal.api.markRead');
+        Route::get('/internal-communication/api/unread-count', [AdminInternalCommunicationController::class, 'apiUnreadCount'])->name('ui.internal.api.unreadCount');
 });
 
 // =====================================================
@@ -181,44 +164,26 @@ Route::middleware(['auth', 'role:support'])
     ->prefix('equipeIT')
     ->name('support.')
     ->group(function () {
-
         // Dashboard
-        Route::get('/dashboard', [SupportITDashboardController::class, 'index'])
-            ->name('dashboard');
+        Route::get('/dashboard', [SupportITDashboardController::class, 'index'])->name('dashboard');
 
         // Tickets
-        Route::get('/tickets', [SupportTicketController::class, 'index'])
-            ->name('tickets.index');
-
-        Route::get('/tickets/{ticket}', [SupportTicketController::class, 'show'])
-            ->name('tickets.show');
-
-        Route::put('/tickets/{ticket}/status', [SupportTicketController::class, 'updateStatus'])
-            ->name('tickets.status');
+        Route::get('/tickets', [SupportTicketController::class, 'index'])->name('tickets.index');
+        Route::get('/tickets/{ticket}', [SupportTicketController::class, 'show'])->name('tickets.show');
+        Route::put('/tickets/{ticket}/status', [SupportTicketController::class, 'updateStatus'])->name('tickets.status');
 
         // Conversations
-        Route::get('/conversations', [SupportITDashboardController::class, 'listeConversations'])
-            ->name('discussions.index');
+        Route::get('/conversations', [SupportITDashboardController::class, 'listeConversations'])->name('discussions.index');
 
         // Notifications
-        Route::get('/notifications', [NotificationController::class, 'index'])
-            ->name('notifications');
+        Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications');
 
         // Settings
-        Route::prefix('settings')
-            ->name('settings.')
-            ->group(function () {
-
-                Route::get('/', [SettingsController::class, 'index'])
-                    ->name('index');
-
-                Route::put('/general', [SettingsController::class, 'updateGeneral'])
-                    ->name('general.update');
-
-                Route::put('/integration', [SettingsController::class, 'updateIntegration'])
-                    ->name('integration.update');
-                
-            });
+        Route::prefix('settings')->name('settings.')->group(function () {
+            Route::get('/', [SettingsController::class, 'index'])->name('index');
+            Route::put('/general', [SettingsController::class, 'updateGeneral'])->name('general.update');
+            Route::put('/integration', [SettingsController::class, 'updateIntegration'])->name('integration.update');
+        });
 
         // New Support UI pages
         Route::prefix('ui')->group(function () {
@@ -236,11 +201,12 @@ Route::middleware(['auth', 'role:support'])
             Route::get('/knowledge', [SupportUIKnowledgeController::class, 'index'])->name('ui.knowledge.index');
             Route::get('/knowledge/create', [SupportUIKnowledgeController::class, 'create'])->name('ui.knowledge.create');
             Route::post('/knowledge', [SupportUIKnowledgeController::class, 'store'])->name('ui.knowledge.store');
+            Route::get('/knowledge/{item}', [SupportUIKnowledgeController::class, 'show'])->name('ui.knowledge.show');
             Route::get('/knowledge/{item}/edit', [SupportUIKnowledgeController::class, 'edit'])->name('ui.knowledge.edit');
             Route::put('/knowledge/{item}', [SupportUIKnowledgeController::class, 'update'])->name('ui.knowledge.update');
             Route::delete('/knowledge/{item}', [SupportUIKnowledgeController::class, 'destroy'])->name('ui.knowledge.destroy');
+            Route::get('/knowledge-base/authors/{user}', [SupportUIKnowledgeController::class, 'showAuthor'])->name('ui.knowledge.author');
             Route::get('/notifications', [SupportUINotificationController::class, 'index'])->name('ui.notifications.index');
-            Route::get('/notifications/unread-count', [SupportUINotificationController::class, 'unreadCount'])->name('ui.notifications.unreadCount');
             Route::get('/notifications/unread-count', [SupportUINotificationController::class, 'unreadCount'])->name('ui.notifications.unreadCount');
             Route::post('/notifications/{id}/read', [SupportUINotificationController::class, 'markRead'])->name('ui.notifications.read');
             Route::post('/notifications/read-all', [SupportUINotificationController::class, 'markAllRead'])->name('ui.notifications.readAll');
@@ -249,6 +215,14 @@ Route::middleware(['auth', 'role:support'])
             Route::get('/settings', [SupportUISettingsController::class, 'index'])->name('ui.settings.index');
             Route::put('/settings/profile', [SupportUISettingsController::class, 'updateProfile'])->name('ui.settings.profile.update');
             Route::put('/settings/password', [SupportUISettingsController::class, 'updatePassword'])->name('ui.settings.password.update');
+
+            // Internal Communication (Support → Admin)
+            Route::get('/internal-communication', [SupportUIInternalCommunicationController::class, 'index'])->name('ui.internal.index');
+            Route::post('/internal-communication/send', [SupportUIInternalCommunicationController::class, 'send'])->name('ui.internal.send');
+            Route::get('/internal-communication/api/messages/{userId}', [SupportUIInternalCommunicationController::class, 'apiMessages'])->name('ui.internal.api.messages');
+            Route::get('/internal-communication/api/team', [SupportUIInternalCommunicationController::class, 'apiTeam'])->name('ui.internal.api.team');
+            Route::post('/internal-communication/api/mark-read/{userId}', [SupportUIInternalCommunicationController::class, 'apiMarkRead'])->name('ui.internal.api.markRead');
+            Route::get('/internal-communication/api/unread-count', [SupportUIInternalCommunicationController::class, 'apiUnreadCount'])->name('ui.internal.api.unreadCount');
         });
 
         // Lightweight AJAX endpoints used by the support UI JavaScript

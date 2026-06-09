@@ -91,14 +91,27 @@ class NotificationController extends Controller
         $user = auth()->user();
         $useLaravel = Schema::hasColumn('notifications', 'notifiable_type') && Schema::hasColumn('notifications', 'notifiable_id');
         if ($useLaravel) {
-            $count = $user ? $user->unreadNotifications()->count() : 0;
+            $notifCount = $user ? $user->unreadNotifications()->count() : 0;
         } else {
             try {
-                $count = AppNotification::where('status', 'pending')->count();
+                $notifCount = AppNotification::where('status', 'pending')->count();
             } catch (\Throwable $e) {
-                $count = 0;
+                $notifCount = 0;
             }
         }
-        return response()->json(['unread' => $count]);
+
+        $clientMsgCount = \App\Models\Message::where('sender', 'user')->whereNull('read_at')->count();
+        $internalMsgCount = \App\Models\InternalMessage::where('receiver_id', auth()->id())->where('is_read', false)->count();
+        $myTicketsCount = \App\Models\Ticket::where('assigned_to', auth()->id())->whereIn('status', ['open', 'in_progress'])->count();
+        $escalatedCount = \App\Models\Ticket::where('is_escalated', true)->whereIn('status', ['open', 'in_progress'])->count();
+
+        return response()->json([
+            'unread' => $notifCount + $clientMsgCount + $internalMsgCount,
+            'notif_count' => $notifCount,
+            'client_messages' => $clientMsgCount,
+            'internal_messages' => $internalMsgCount,
+            'my_tickets' => $myTicketsCount,
+            'escalated_tickets' => $escalatedCount,
+        ]);
     }
 }

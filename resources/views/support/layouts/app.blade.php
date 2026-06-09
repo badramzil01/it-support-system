@@ -193,20 +193,26 @@
                 <a href="{{ route('support.ui.tickets.index') }}"
                    class="nav-item {{ request()->routeIs('support.ui.tickets.*') ? 'active' : '' }} flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition">
                     <svg class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M5.5 3A2.5 2.5 0 0 0 3 5.5v9A2.5 2.5 0 0 0 5.5 17h9a2.5 2.5 0 0 0 2.5-2.5v-9A2.5 2.5 0 0 0 14.5 3h-9Zm1 3.75A.75.75 0 0 1 7.25 6h5.5a.75.75 0 0 1 0 1.5h-5.5a.75.75 0 0 1-.75-.75Zm0 3.25A.75.75 0 0 1 7.25 9.25h5.5a.75.75 0 0 1 0 1.5h-5.5A.75.75 0 0 1 6.5 10Zm.75 2.5h3.5a.75.75 0 0 1 0 1.5h-3.5a.75.75 0 0 1 0-1.5Z" clip-rule="evenodd"/>
+                        <path fill-rule="evenodd" d="M5.5 3A2.5 2.5 0 0 0 3 5.5v9A2.5 2.5 0 0 0 5.5 17h9a2.5 2.5 0 0 0 2.5-2.5v-9A2.5 2.5 0 0 0 14.5 3h-9Zm1 3.75A.75.75 0 0 1 7.25 6h5.5a.75.75 0 0 1 0 1.5h-5.5a.75.75 0 0 1 0-1.5Zm0 3A.75.75 0 0 1 7.25 9h5.5a.75.75 0 0 1 0 1.5h-5.5a.75.75 0 0 1 0-1.5Zm0 3a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 0 1.5h-3a.75.75 0 0 1-.75-.75Z" clip-rule="evenodd"/>
                     </svg>
-                    <span>Mes tickets</span>
-                    <span class="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-500/20 text-[10px] font-bold text-blue-400 px-1.5">12</span>
+                    <span>Tickets</span>
                 </a>
-                    <a href="{{ route('support.ui.conversations.index') }}"
+                <a href="{{ route('support.ui.conversations.index') }}"
                    class="nav-item {{ request()->routeIs('support.ui.conversations.*') ? 'active' : '' }} flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition">
                     <svg class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M3.43 2.524A41.29 41.29 0 0 1 10 2c2.236 0 4.43.18 6.57.524 1.437.231 2.43 1.49 2.43 2.902v5.148c0 1.413-.993 2.67-2.43 2.902a41.202 41.202 0 0 1-5.183.501.78.78 0 0 0-.528.224l-3.579 3.58A.75.75 0 0 1 6 17.25v-3.443a41.033 41.033 0 0 1-2.57-.257C1.993 13.322 1 12.065 1 10.652V5.426c0-1.413.993-2.67 2.43-2.902Z" clip-rule="evenodd"/>
                     </svg>
-                    <span>Conversations</span>
+                    <span>Conversations Clients</span>
+                    <span id="sidebarClientMessagesBadge" class="ml-auto inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-500 text-white" style="display: none;"></span>
                 </a>
-                    <a href="{{ route('support.ui.tickets.index', ['is_escalated' => 1]) }}#"
-                        class="nav-item {{ request()->routeIs('support.ui.tickets.*') ? 'active' : '' }} flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition">
+                <a href="{{ route('support.ui.internal.index') }}"
+                   class="nav-item {{ request()->routeIs('support.ui.internal.*') ? 'active' : '' }} flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition">
+                    <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+                    <span>Communication Interne</span>
+                    <span id="sidebarInternalMessagesBadge" class="ml-auto inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-500 text-white" style="display: none;"></span>
+                </a>
+                <a href="{{ route('support.ui.tickets.index', ['is_escalated' => 1]) }}"
+                   class="nav-item flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition">
                     <svg class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.19-1.458-1.515-2.625L8.485 2.495ZM10 5.25a.75.75 0 0 1 .75.75v4a.75.75 0 0 1-1.5 0V6a.75.75 0 0 1 .75-.75Zm0 8.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/>
                     </svg>

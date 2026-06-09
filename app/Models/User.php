@@ -69,6 +69,43 @@ class User extends Authenticatable
     }
 
     /**
+     * Solutions de la base de connaissance créées par cet utilisateur
+     */
+    public function knowledgeBaseItems()
+    {
+        return $this->hasMany(KnowledgeBase::class, 'author_id');
+    }
+
+    public function knowledgeBaseModifications()
+    {
+        return $this->hasMany(KnowledgeBase::class, 'last_modified_by');
+    }
+
+    /**
+     * Internal messages sent by this user
+     */
+    public function sentInternalMessages()
+    {
+        return $this->hasMany(InternalMessage::class, 'sender_id');
+    }
+
+    /**
+     * Internal messages received by this user
+     */
+    public function receivedInternalMessages()
+    {
+        return $this->hasMany(InternalMessage::class, 'receiver_id');
+    }
+
+    /**
+     * Unread internal messages received by this user
+     */
+    public function unreadInternalMessages()
+    {
+        return $this->receivedInternalMessages()->unread();
+    }
+
+    /**
      * Helpers
      */
     public function isAdmin(): bool
