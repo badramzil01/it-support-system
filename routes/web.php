@@ -18,7 +18,6 @@ use App\Http\Controllers\ItSupportEquipe\DashboardController as SupportITDashboa
 use App\Http\Controllers\ItSupportEquipe\SupportTicketController;
 
 use App\Http\Controllers\NotificationController;
-use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SupportUI\DashboardController as SupportUIDashboardController;
 use App\Http\Controllers\SupportUI\TicketController as SupportUITicketController;
 use App\Http\Controllers\SupportUI\ConversationController as SupportUIConversationController;
@@ -122,12 +121,18 @@ Route::middleware(['auth', 'role:admin'])
 
         // Users
         Route::get('/users', [AdminDashboardController::class, 'ListeUsers'])->name('ui.users.index');
-        Route::post('/users/store', [AdminDashboardController::class, 'EnregistrerUser'])->name('users.store');
-        Route::put('/users/modifier/{id}', [AdminDashboardController::class, 'ModifierUser'])->name('users.update');
-        Route::delete('/users/{user}/delete', [AdminDashboardController::class, 'SupprimerUser'])->name('users.delete');
+        Route::post('/users/store', [AdminDashboardController::class, 'EnregistrerUser'])->name('ui.users.store');
+        Route::put('/users/modifier/{id}', [AdminDashboardController::class, 'ModifierUser'])->name('ui.users.update');
+        Route::delete('/users/{user}/delete', [AdminDashboardController::class, 'SupprimerUser'])->name('ui.users.delete');
 
         // Roles & Permissions
-        Route::get('/roles&permissions', [AdminDashboardController::class, 'listeRole'])->name('role_permissions');
+        Route::get('/roles&permissions', [AdminDashboardController::class, 'listeRole'])->name('ui.roles');
+        Route::post('/permissions', [AdminDashboardController::class, 'EnregistrerPermission'])->name('ui.permissions.store');
+        Route::put('/permissions/{permission}', [AdminDashboardController::class, 'ModifierPermission'])->name('ui.permissions.update');
+        Route::delete('/permissions/{permission}', [AdminDashboardController::class, 'SupprimerPermission'])->name('ui.permission.destroy');
+        Route::post('/roles', [AdminDashboardController::class, 'EnregistrerRole'])->name('ui.roles.store');
+        Route::put('/roles/{role}', [AdminDashboardController::class, 'ModifierRole'])->name('ui.roles.update');
+        Route::delete('/roles/{role}', [AdminDashboardController::class, 'SupprimerRole'])->name('ui.roles.destroy');
 
         // Settings
         Route::prefix('settings')->name('ui.settings.')->group(function () {
@@ -136,6 +141,7 @@ Route::middleware(['auth', 'role:admin'])
             Route::put('/password', [AdminSettingsController::class, 'updatePassword'])->name('password.update');
             Route::put('/appearance', [AdminSettingsController::class, 'updateAppearance'])->name('appearance.update');
             Route::put('/integrations', [AdminSettingsController::class, 'updateIntegrations'])->name('integrations.update');
+            Route::get('/logs/download', [SettingsController::class, 'download_log_file'])->name('logs.download');
         });
 
         // AI Responses
@@ -178,12 +184,6 @@ Route::middleware(['auth', 'role:support'])
         // Notifications
         Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications');
 
-        // Settings
-        Route::prefix('settings')->name('settings.')->group(function () {
-            Route::get('/', [SettingsController::class, 'index'])->name('index');
-            Route::put('/general', [SettingsController::class, 'updateGeneral'])->name('general.update');
-            Route::put('/integration', [SettingsController::class, 'updateIntegration'])->name('integration.update');
-        });
 
         // New Support UI pages
         Route::prefix('ui')->group(function () {

@@ -1,4 +1,4 @@
-@extends('support.layouts.app')
+@extends('admin.layouts.app')
 @section('title', 'Tickets')
 @section('content')
 @php

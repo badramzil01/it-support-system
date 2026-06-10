@@ -97,4 +97,22 @@ class SettingsController extends Controller
             'n8n_webhook'       => Setting::where('key','integration.n8n_webhook')->value('value') ?: env('N8N_WEBHOOK_URL',''),
         ];
     }
+    public function download_log_file()
+    {
+        $logFile = storage_path('logs/audit.log');
+
+        if (!File::exists($logFile)) {
+            return back()->with('error', 'Aucun fichier de log trouvé.');
+        }
+
+        $content = File::get($logFile);
+
+        $fileName = 'Journal_' . now()->format('Y_m_d_His') . '.txt';
+
+        return response($content)
+            ->header('Content-Type', 'text/plain')
+            ->header('Content-Disposition', "attachment; filename=$fileName");
+    }
+
+    
 }

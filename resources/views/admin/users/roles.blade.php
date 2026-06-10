@@ -1,4 +1,5 @@
-@extends('parts.base')
+@extends('admin.layouts.app')
+@section('title','roles et permissions')
 @section('content')
 <div class="p-8">
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -10,11 +11,11 @@
             </h2>
 
             @if(isset($role))
-                <form method="POST" action="{{ route('admin.roles.update', $role->id) }}">
+                <form method="POST" action="{{ route('admin.ui.roles.update', $role->id) }}">
                     @csrf
                     @method('PUT')
             @else
-                <form method="POST" action="{{ route('admin.roles.store') }}">
+                <form method="POST" action="{{ route('admin.ui.roles.store') }}">
                     @csrf
             @endif
 
@@ -106,14 +107,14 @@
                                     <div class="flex gap-2">
 
                                         <a
-                                            href="{{ route('admin.role_permissions', ['edit' => $role->id]) }}"
+                                            href="{{ route('admin.ui.roles', ['edit' => $role->id]) }}"
                                             class="bg-yellow-500 text-white px-3 py-1 rounded">
                                             Modifier
                                         </a>
 
                                         <form
                                             method="POST"
-                                            action="{{ route('admin.roles.destroy', $role->id) }}"
+                                            action="{{ route('admin.ui.roles.destroy', $role->id) }}"
                                             onsubmit="return confirm('Supprimer ce rôle ?')">
 
                                             @csrf
@@ -153,11 +154,11 @@
             </h2>
 
             @if(isset($permission))
-                <form method="POST" action="{{ route('admin.permissions.update', $permission->id) }}">
+                <form method="POST" action="{{ route('admin.ui.permissions.update', $permission->id) }}">
                     @csrf
                     @method('PUT')
             @else
-                <form method="POST" action="{{ route('admin.permissions.store') }}">
+                <form method="POST" action="{{ route('admin.ui.permissions.store') }}">
                     @csrf
             @endif
 
@@ -213,14 +214,14 @@
                                     <div class="flex gap-2">
 
                                         <a
-                                            href="{{ route('admin.role_permissions', ['editp' => $p->id]) }}"
+                                            href="{{ route('admin.ui.role_permissions', ['editp' => $p->id]) }}"
                                             class="bg-yellow-500 text-white px-3 py-1 rounded">
                                             Modifier
                                         </a>
 
                                         <form
                                             method="POST"
-                                            action="{{ route('admin.permission.destroy', $p->id) }}"
+                                            action="{{ route('admin.ui.permission.destroy', $p->id) }}"
                                             onsubmit="return confirm('Supprimer cette permission ?')">
 
                                             @csrf

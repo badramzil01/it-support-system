@@ -18,8 +18,12 @@ return new class extends Migration
             $table->string('model')->nullable();
             $table->unsignedBigInteger('model_id')->nullable();
             $table->text('description')->nullable();
+            $table->json('old_values')->nullable();
+            $table->json('new_values')->nullable();
             $table->ipAddress('ip_address')->nullable();
             $table->timestamps();
+            $table->index(['model', 'model_id']);
+            $table->index('user_id');
         });
     }
 

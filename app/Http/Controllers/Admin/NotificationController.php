@@ -24,6 +24,8 @@ class NotificationController extends Controller
             $query = AppNotification::with('ticket');
         }
 
+        $notifications = (clone $query)->latest()->paginate(20);
+
         // Filters
         $stats = [
             'urgent'    => Ticket::where('is_urgent', true)->count(),
@@ -31,7 +33,7 @@ class NotificationController extends Controller
             'errors'    => (clone $query)->where(function($q){ $q->where('type','like','%error%')->orWhere('type','like','%fail%'); })->count() ?? 0,
         ];
 
-        return view('admin.notifications.index', compact('useLaravel','stats','filter'));
+        return view('admin.notifications.index', compact('notifications','useLaravel','stats','filter'));
     }
 
     public function markRead($id)
