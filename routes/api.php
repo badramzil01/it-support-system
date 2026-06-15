@@ -5,114 +5,171 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\SupportController;
 use App\Http\Controllers\AIResponseController;
 use App\Http\Controllers\Api\TicketController;
-use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Api\RuntimeSettingsController;
+use App\Http\Controllers\Api\JiraController;
+use App\Http\Controllers\Admin\MonitoringController;
+
+use App\Models\IntegrationConfig;
 
 /*
 |--------------------------------------------------------------------------
-| API ROUTES
+| TEST API
 |--------------------------------------------------------------------------
 */
 
-// =====================================================
-// TEST API
-// =====================================================
 Route::get('/test', function () {
-
     return response()->json([
         'success' => true,
-        'message' => 'API WORKING 🚀'
+        'message' => 'API WORKING 🚀',
     ]);
-
 });
 
-// =====================================================
-// SUPPORT CHATBOT WEBHOOK
-// =====================================================
+/*
+|--------------------------------------------------------------------------
+| RUNTIME CONFIG (n8n)
+|--------------------------------------------------------------------------
+*/
+
+Route::get(
+    '/integrations/runtime-config',
+    [MonitoringController::class, 'runtimeConfig']
+);
+
+Route::get(
+    '/settings/runtime',
+    [RuntimeSettingsController::class, 'index']
+);
+
+/*
+|--------------------------------------------------------------------------
+| AI CONFIG FOR N8N
+|--------------------------------------------------------------------------
+*/
+
+Route::get('/ai/config', function () {
+
+    return response()->json([
+
+        'provider' => IntegrationConfig::where(
+            'service',
+            'ai'
+        )->where(
+            'config_key',
+            'provider'
+        )->value('config_value') ?? 'openrouter',
+
+        'openrouter_api_key' => IntegrationConfig::where(
+            'service',
+            'openrouter'
+        )->where(
+            'config_key',
+            'api_key'
+        )->value('config_value'),
+
+        'openrouter_model' => IntegrationConfig::where(
+            'service',
+            'openrouter'
+        )->where(
+            'config_key',
+            'model'
+        )->value('config_value') ?? 'google/gemma-3-27b-it',
+
+        'gemini_api_key' => IntegrationConfig::where(
+            'service',
+            'gemini'
+        )->where(
+            'config_key',
+            'api_key'
+        )->value('config_value'),
+
+        'laravel_api_url' => IntegrationConfig::where(
+            'service',
+            'laravel'
+        )->where(
+            'config_key',
+            'base_url'
+        )->value('config_value'),
+    ]);
+});
+
+/*
+|--------------------------------------------------------------------------
+| SUPPORT CHATBOT
+|--------------------------------------------------------------------------
+*/
+
 Route::post(
     '/webhook/support',
     [SupportController::class, 'handle']
 );
 
-// =====================================================
-// USER FEEDBACK
-// =====================================================
 Route::post(
     '/ticket/feedback',
     [SupportController::class, 'feedback']
 );
 
-// =====================================================
-// SAVE AI RESPONSE
-// =====================================================
 Route::post(
     '/ai-response',
     [AIResponseController::class, 'store']
 );
 
-// =====================================================
-// CHECK IF TICKET EXISTS
-// =====================================================
+/*
+|--------------------------------------------------------------------------
+| TICKETS
+|--------------------------------------------------------------------------
+*/
+
 Route::post(
     '/check-ticket',
     [TicketController::class, 'checkTicket']
 );
 
-// =====================================================
-// CREATE TICKET
-// =====================================================
 Route::post(
     '/create-ticket',
     [TicketController::class, 'createTicket']
 );
 
-// =====================================================
-// UPDATE TICKET STATUS
-// =====================================================
 Route::post(
     '/update-ticket-status',
     [TicketController::class, 'updateStatus']
 );
 
-// =====================================================
-// SAVE TICKET CREATED BY N8N
-// =====================================================
 Route::post(
     '/tickets',
     [TicketController::class, 'store']
 );
 
-// =====================================================
-// UPDATE JIRA KEY AFTER ISSUE CREATION
-// =====================================================
 Route::post(
     '/tickets/{id}/jira-key',
     [SupportController::class, 'updateJiraKey']
 );
 
-// =====================================================
-// GET USER CONVERSATIONS
-// =====================================================
+/*
+|--------------------------------------------------------------------------
+| CONVERSATIONS
+|--------------------------------------------------------------------------
+*/
+
 Route::get(
     '/conversations/{user_id}',
     [SupportController::class, 'getConversations']
 );
 
-// =====================================================
-// GET CHAT MESSAGES
-// =====================================================
 Route::get(
     '/messages/{conversation_id}',
     [SupportController::class, 'getMessages']
 );
 
-// =====================================================
-// CORS PREFLIGHT
-// =====================================================
-Route::options('{any}', function () {
+/*
+|--------------------------------------------------------------------------
+| JIRA
+|--------------------------------------------------------------------------
+*/
 
-    return response()->json([], 200);
-
-})->where('any', '.*');
+Route::post(
+    '/jira/create',
+    [JiraController::class, 'create']
+);
 
 Route::get('/jira-test/{key}', function ($key) {
 
@@ -120,3 +177,15 @@ Route::get('/jira-test/{key}', function ($key) {
         ->getTransitions($key);
 
 });
+
+/*
+|--------------------------------------------------------------------------
+| CORS
+|--------------------------------------------------------------------------
+*/
+
+Route::options('{any}', function () {
+
+    return response()->json([], 200);
+
+})->where('any', '.*');

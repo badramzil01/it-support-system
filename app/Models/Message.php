@@ -61,7 +61,8 @@ class Message extends Model
         // =====================================
         // 🖼 IMAGE
         // =====================================
-        'image_path'
+        'image_path',
+        'mime_type'
     ];
 
     protected $casts = [

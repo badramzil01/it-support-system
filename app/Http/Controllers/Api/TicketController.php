@@ -159,6 +159,12 @@ class TicketController extends Controller
                     $request->input('has_image', false),
                     FILTER_VALIDATE_BOOLEAN
                 ),
+
+                'image_url' => $request->input('image_url'),
+
+                'mime_type' => $request->input('mime_type'),
+
+                'ticket_status' => 'pending',
             ]);
 
             Log::info('ticket.created', [

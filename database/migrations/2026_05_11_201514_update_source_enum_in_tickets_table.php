@@ -7,26 +7,30 @@ return new class extends Migration
 {
     public function up(): void
     {
-        DB::statement("
-            ALTER TABLE tickets
-            MODIFY source ENUM(
-                'db',
-                'ai',
-                'vision_ai',
-                'support',
-                'system'
-            )
-        ");
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("
+                ALTER TABLE tickets
+                MODIFY source ENUM(
+                    'db',
+                    'ai',
+                    'vision_ai',
+                    'support',
+                    'system'
+                )
+            ");
+        }
     }
 
     public function down(): void
     {
-        DB::statement("
-            ALTER TABLE tickets
-            MODIFY source ENUM(
-                'db',
-                'ai'
-            )
-        ");
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("
+                ALTER TABLE tickets
+                MODIFY source ENUM(
+                    'db',
+                    'ai'
+                )
+            ");
+        }
     }
 };

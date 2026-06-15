@@ -21,6 +21,7 @@ class Ticket extends Model
     'solution',
     'source',
     'status',
+    'ticket_status',
     'priority',
     'category',
     'confidence',
@@ -28,6 +29,8 @@ class Ticket extends Model
     'is_urgent',
     'is_escalated',
     'has_image',
+    'image_url',
+    'mime_type',
     'resolved_at',
     'closed_at',
 	];

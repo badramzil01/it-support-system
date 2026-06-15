@@ -11,10 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('settings', function (Blueprint $table) {
+        Schema::create('system_metrics', function (Blueprint $table) {
             $table->id();
-            $table->string('key')->unique();
-            $table->longText('value')->nullable();
+            $table->string('service');
+            $table->string('status');
+            $table->integer('response_time')->nullable();
+            $table->timestamp('last_sync')->nullable();
             $table->timestamps();
         });
     }
@@ -24,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('settings');
+        Schema::dropIfExists('system_metrics');
     }
 };

@@ -11,7 +11,7 @@
     @if (class_exists(\Illuminate\Foundation\Vite::class))
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     @else
-        <link href="/build/assets/app-DONBQu_T.css" rel="stylesheet">
+        <link href="/build/assets/app-D1EoIDVd.css" rel="stylesheet">
         <script src="/build/assets/app-DsIK1Lmc.js" defer></script>
     @endif
     <style>

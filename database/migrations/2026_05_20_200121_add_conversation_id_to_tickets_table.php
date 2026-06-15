@@ -13,6 +13,10 @@ return new class extends Migration
     {
         Schema::table('tickets', function (Blueprint $table) {
 
+            if (!Schema::hasColumn('tickets', 'conversation_id')) {
+                $table->unsignedBigInteger('conversation_id')->nullable();
+            }
+
             if (!Schema::hasColumn('tickets', 'title')) {
                 $table->string('title')->nullable();
             }
@@ -38,6 +42,10 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('tickets', function (Blueprint $table) {
+
+            if (Schema::hasColumn('tickets', 'conversation_id')) {
+                $table->dropColumn('conversation_id');
+            }
 
             if (Schema::hasColumn('tickets', 'title')) {
                 $table->dropColumn('title');

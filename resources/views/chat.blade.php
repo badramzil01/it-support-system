@@ -920,10 +920,15 @@
         <div class="input-area">
             <div class="input-container">
                 <div class="action-flags">
-                    <button class="action-flag-btn afb-urgent" id="btnUrgent" onclick="toggleFlag('urgent')">🚨 <span>Urgent</span></button>
-                    <button class="action-flag-btn afb-escalated" id="btnEscalated" onclick="toggleFlag('escalated')">⬆️ <span>Escalade</span></button>
-                    <button class="action-flag-btn afb-ticket" id="btnTicket" onclick="toggleFlag('ticket')">🎫 <span>Créer Ticket</span></button>
+                    <button type="button" class="action-flag-btn afb-urgent" id="btnUrgent" data-flag="is_urgent" onclick="toggleFlag('urgent')">🚨 <span>Urgent</span></button>
+                    <button type="button" class="action-flag-btn afb-escalated" id="btnEscalated" data-flag="is_escalated" onclick="toggleFlag('escalated')">⬆️ <span>Escalade</span></button>
+                    <button type="button" class="action-flag-btn afb-ticket" id="btnTicket" data-flag="create_ticket" onclick="toggleFlag('ticket')">🎫 <span>Créer Ticket</span></button>
                 </div>
+                <!-- Hidden inputs mirror the active flags so the value is always submitted
+                     (fallback in case FormData() ever drops the boolean fields). -->
+                <input type="hidden" name="is_urgent"     id="hiddenIsUrgent"     value="0">
+                <input type="hidden" name="is_escalated"  id="hiddenIsEscalated"  value="0">
+                <input type="hidden" name="create_ticket" id="hiddenCreateTicket" value="0">
                 <div class="img-prev" id="imgPrev">
                     <img id="prevImg" alt="preview">
                     <div class="img-prev-rm" onclick="removeImg()">×</div>
@@ -1204,7 +1209,22 @@ function setSending(on) {
 function toggleFlag(type) {
     flags[type] = !flags[type];
     document.getElementById('btn' + type.charAt(0).toUpperCase() + type.slice(1)).classList.toggle('active', flags[type]);
+    syncHiddenFlags();
     renderFlagsBar();
+}
+
+/**
+ * Mirror the active flag state into the hidden <input> elements so that
+ * whatever FormData() does, the field is still present in the body sent
+ * to /api/webhook/support and forwarded to n8n.
+ */
+function syncHiddenFlags() {
+    const hU = document.getElementById('hiddenIsUrgent');
+    const hE = document.getElementById('hiddenIsEscalated');
+    const hT = document.getElementById('hiddenCreateTicket');
+    if (hU) hU.value = flags.urgent   ? '1' : '0';
+    if (hE) hE.value = flags.escalated ? '1' : '0';
+    if (hT) hT.value = flags.ticket    ? '1' : '0';
 }
 function renderFlagsBar() {
     const active = Object.entries(flags).filter(([,v]) => v);
@@ -1405,10 +1425,15 @@ async function sendMessage() {
     flags.escalated = false;
     flags.ticket = false;
     ['btnUrgent','btnEscalated','btnTicket'].forEach(id => document.getElementById(id).classList.remove('active'));
+    syncHiddenFlags();
     renderFlagsBar();
 
     typingRow.classList.add('on');
     scrollBot();
+
+    // Make absolutely sure the hidden flags mirror the snapshot just before
+    // building the FormData (belt + suspenders).
+    syncHiddenFlags();
 
     const formData = new FormData();
     formData.append('message', text);
@@ -1416,9 +1441,15 @@ async function sendMessage() {
     const backendConversationId = conversations[activeId]?.backendId;
     if (backendConversationId) formData.append('conversation_id', backendConversationId);
     formData.append('user_id', USER_ID);
-    formData.append('is_urgent', snapshot.urgent ? '1' : '0');
-    formData.append('is_escalated', snapshot.escalated ? '1' : '0');
-    formData.append('create_ticket', snapshot.ticket ? '1' : '0');
+    formData.append('is_urgent',     snapshot.urgent   ? '1' : '0');
+    formData.append('is_escalated',  snapshot.escalated ? '1' : '0');
+    formData.append('create_ticket', snapshot.ticket    ? '1' : '0');
+
+    console.log('CHAT -> webhook flags', {
+        is_urgent:     snapshot.urgent   ? 1 : 0,
+        is_escalated:  snapshot.escalated ? 1 : 0,
+        create_ticket: snapshot.ticket    ? 1 : 0,
+    });
     if (file) {
         try {
             formData.append('image', await prepareImageFile(file));

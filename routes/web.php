@@ -94,6 +94,9 @@ Route::middleware(['auth', 'role:admin'])
 
         // Monitoring
         Route::get('/monitoring', [AdminMonitoringController::class, 'index'])->name('ui.monitoring.index');
+        Route::get('/monitoring/{service}/details', [AdminMonitoringController::class, 'getServiceDetails'])->name('ui.monitoring.details');
+        Route::post('/monitoring/{service}/settings', [AdminMonitoringController::class, 'updateServiceSettings'])->name('ui.monitoring.settings');
+        Route::post('/integrations/test/{service}', [AdminMonitoringController::class, 'test'])->name('ui.integrations.test');
 
         // Tickets
         Route::get('/tickets', [AdminTicketController::class, 'index'])->name('ui.tickets.index');

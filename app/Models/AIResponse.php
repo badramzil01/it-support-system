@@ -36,6 +36,8 @@ class AIResponse extends Model
 
         'image_url',
 
+        'mime_type',
+
         'reason',
 
     ];

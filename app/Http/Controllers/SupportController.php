@@ -2,13 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\SupportWebhookRequest;
 use App\Mail\SupportAlertMail;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\Solution;
 use App\Models\Ticket;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -22,31 +25,67 @@ class SupportController extends Controller
     private const VALID_STATUSES   = ['pending', 'resolved', 'waiting_support', 'closed', 'error'];
     private const VALID_PRIORITIES = ['low', 'medium', 'high', 'critical'];
 
-    private string $n8nWebhookSupport = 'http://localhost:5678/webhook-test/support';
-    private string $n8nWebhookJira    = 'http://localhost:5678/webhook/jira-ticket';
+    private function getWebhookSupportUrl(): string
+    {
+        return $this->n8nUrl('webhook_support', 'N8N_WEBHOOK_URL', 'http://localhost:5678/webhook/support');
+    }
+
+    private function getWebhookJiraUrl(): string
+    {
+        return $this->n8nUrl('webhook_ticket', 'N8N_WEBHOOK_TICKET', 'http://localhost:5678/webhook/jira-ticket');
+    }
+
+    private function getRuntimeConfigForN8n(): array
+    {
+        $cfg = fn(string $svc, string $key, ?string $env = null) =>
+            \App\Models\IntegrationConfig::getValue($svc, $key, $env);
+
+        $laravelBaseUrl = \App\Models\IntegrationConfig::getValue('laravel', 'base_url') 
+            ?? env('APP_URL') 
+            ?? request()->getSchemeAndHttpHost();
+
+        if (str_contains($laravelBaseUrl, 'localhost') || str_contains($laravelBaseUrl, '127.0.0.1')) {
+            $laravelBaseUrl = request()->getSchemeAndHttpHost();
+        }
+
+        return [
+            'laravel_api_url'     => rtrim($laravelBaseUrl, '/'),
+            'n8n_webhook_support' => $this->getWebhookSupportUrl(),
+            'n8n_webhook_ticket'  => $this->getWebhookJiraUrl(),
+            'gemini_api_key'      => $cfg('gemini', 'api_key',   'GEMINI_API_KEY'),
+            'gemini_model'        => $cfg('gemini', 'model',     'GEMINI_MODEL') ?? 'gemini-1.5-flash',
+            'openrouter_api_key'  => $cfg('openrouter', 'api_key', 'OPENROUTER_API_KEY'),
+            'openrouter_model'    => $cfg('openrouter', 'model',   'OPENROUTER_MODEL') ?? 'nvidia/nemotron-3-nano-30b-a3b:free',
+            'jira_url'            => $cfg('jira', 'url',         'JIRA_URL'),
+            'jira_token'          => $cfg('jira', 'token',       'JIRA_TOKEN'),
+            'jira_project'        => $cfg('jira', 'project_key', 'JIRA_PROJECT_KEY') ?? 'SUP',
+            'jira_email'          => $cfg('gmail', 'address',    'MAIL_FROM_ADDRESS'),
+            'gmail_from'          => $cfg('gmail', 'address',   'MAIL_FROM_ADDRESS'),
+            'gmail_to'            => $cfg('gmail', 'to_address', 'MAIL_TO_ADDRESS') ?? $cfg('gmail', 'address', 'MAIL_FROM_ADDRESS'),
+            'support_email'       => $cfg('gmail', 'address',   'MAIL_FROM_ADDRESS'),
+        ];
+    }
+
+    // n8n webhook URLs are now read dynamically from IntegrationConfig.
+    // Fallback: host.docker.internal works when Laravel runs on host and n8n runs in Docker (Windows/Mac).
+    private function n8nUrl(string $key, string $envFallback, string $defaultUrl): string
+    {
+        return \App\Models\IntegrationConfig::getValue('n8n', $key) 
+            ?? env($envFallback) 
+            ?? $defaultUrl;
+    }
 
     // =========================================================================
     // PUBLIC ENDPOINTS
     // =========================================================================
 
-    public function handle(Request $request)
+    public function handle(SupportWebhookRequest $request)
     {
+        set_time_limit(120);
         $startedAt = microtime(true);
         $traceId   = (string) Str::uuid();
 
         try {
-            $request->validate([
-                'message'         => 'nullable|string|max:3000',
-                'image'           => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
-                'is_urgent'       => 'nullable|boolean',
-                'is_escalated'    => 'nullable|boolean',
-                'create_ticket'   => 'nullable|boolean',
-                'priority'        => 'nullable|string|in:low,medium,high,critical',
-                'source'          => 'nullable|string|max:40',
-                'session_id'      => 'nullable|string|max:120',
-                'conversation_id' => 'nullable',
-            ]);
-
             if (!$request->filled('message') && !$request->hasFile('image')) {
                 return $this->apiError('Message ou image requis.', 422, [
                     'trace_id' => $traceId,
@@ -54,7 +93,11 @@ class SupportController extends Controller
                 ]);
             }
 
-            $userId          = auth()->id() ?? 1;
+            $userId = $request->input('user_id') ?? auth()->id() ?? 1;
+            // NOTE: $customerEmail is computed later (after conversation is loaded)
+            // so we can pull it from the conversation->user->email if needed.
+            $customerEmail = null;
+
             $originalMessage = trim((string) $request->input('message', ''));
             $detectMessage   = $this->normalizeForDetection($originalMessage);
             $language        = $this->detectLanguage($detectMessage);
@@ -62,6 +105,16 @@ class SupportController extends Controller
             $hasImage        = $image['has_image'];
 
             $conversation = $this->resolveConversation($request, $userId, $detectMessage, $hasImage);
+
+            // Now that the conversation is loaded, we can resolve the customer email
+            // from multiple sources (see resolveCustomerEmail()).
+            $customerEmail = $this->resolveCustomerEmail($request, $userId, $conversation);
+
+            Log::info('support.customer_email.resolved', [
+                'trace_id'       => $traceId,
+                'user_id'        => $userId,
+                'customer_email' => $customerEmail,
+            ]);
 
             // Save the user message — user_message = original message typed by user
             $userMessage = Message::create([
@@ -74,6 +127,7 @@ class SupportController extends Controller
                 'source'          => 'user',
                 'status'          => 'sent',
                 'image_path'      => $image['image_url'],
+                'mime_type'       => $image['mime_type'] ?? null,
                 'user_message'    => $originalMessage !== '' ? $originalMessage : null,
             ]);
 
@@ -83,9 +137,9 @@ class SupportController extends Controller
                 'user_message' => $userMessage->user_message,
             ]);
 
-            $isUrgent     = $request->boolean('is_urgent');
-            $isEscalated  = $request->boolean('is_escalated');
-            $createTicket = $request->boolean('create_ticket');
+            $isUrgent     = (bool) $request->boolean('is_urgent');
+            $isEscalated  = (bool) $request->boolean('is_escalated');
+            $createTicket = (bool) $request->boolean('create_ticket');
 
             $priority = $this->normalizePriority(
                 $request->input('priority') ?: $this->detectPriority($detectMessage, $isUrgent, $isEscalated)
@@ -129,6 +183,8 @@ class SupportController extends Controller
                 $showTicket = true;
             }
 
+            $reason = null;
+
             if ($isFrustrated) {
                 $solution       = 'Votre demande a ete transferee a notre equipe support.';
                 $source         = 'support';
@@ -138,26 +194,26 @@ class SupportController extends Controller
                 $showTicket     = true;
                 $n8nUserMessage = null;
             } elseif ($hasImage) {
+                $messages = $this->buildOpenRouterContext($conversation->id);
+                $msgText = $originalMessage !== '' ? $originalMessage : 'Screenshot envoye';
                 $aiResult = $this->callSupportWorkflow([
-                    'user_id'         => $userId,
                     'conversation_id' => $conversation->id,
-                    'message'         => $originalMessage !== '' ? $originalMessage : 'Screenshot envoye',
-                    'message_clean'   => $detectMessage,
-                    'context'         => $this->buildConversationContext($conversation->id),
-                    'source'          => 'vision_ai',
+                    'user_id'         => $userId,
+                    'customer_email'  => $customerEmail,
+                    'user_message'    => $msgText,
+                    'message'         => $msgText,
                     'priority'        => $priority,
                     'category'        => $category,
-                    'status'          => 'pending',
-                    'session_id'      => $request->input('session_id'),
+                    'source'          => $request->input('source') ?? 'web',
                     'is_urgent'       => $isUrgent,
                     'is_escalated'    => $isEscalated,
                     'create_ticket'   => $createTicket,
+                    'image_url'       => $image['image_url'] ?? '',
+                    'image_base64'    => $image['image_base64'] ?? '',
+                    'mime_type'       => $image['mime_type'] ?? '',
                     'has_image'       => true,
-                    'image_url'       => $image['image_url'],
-                    'image_base64'    => $image['image_base64'],
-                    'mime_type'       => $image['mime_type'],
-                    'language'        => $language,
-                ], $traceId, 180);
+                    'messages'        => $messages,
+                ], $traceId, 45);
 
                 $solution       = $aiResult['message'];
                 $n8nUserMessage = $aiResult['user_message'] ?? null;
@@ -165,6 +221,15 @@ class SupportController extends Controller
                 $status         = $aiResult['ok'] ? 'resolved' : 'error';
                 $confidence     = $aiResult['ok'] ? 92 : 0;
                 $showTicket     = true;
+
+                if ($aiResult['ok']) {
+                    $isUrgent     = $aiResult['is_urgent'];
+                    $isEscalated  = $aiResult['is_escalated'];
+                    $createTicket = $aiResult['create_ticket'];
+                    $priority     = $aiResult['priority'];
+                    $category     = $aiResult['category'];
+                    $reason       = $aiResult['reason'];
+                }
             } else {
                 $dbSolution = $this->findDatabaseSolution($detectMessage);
 
@@ -179,15 +244,18 @@ class SupportController extends Controller
                     $this->fireAndLogSupportWebhook([
                         'user_id'         => $userId,
                         'conversation_id' => $conversation->id,
+                        'customer_email'  => $customerEmail,
                         'message'         => $originalMessage,
                         'message_clean'   => $detectMessage,
+                        'user_message'    => $originalMessage,
                         'response'        => [
-                            'message'       => $solution,
-                            'is_urgent'     => $isUrgent,
-                            'is_escalated'  => $isEscalated,
-                            'create_ticket' => $createTicket,
-                            'priority'      => $priority,
-                            'category'      => $category,
+                            'message'         => $solution,
+                            'is_urgent'       => $isUrgent,
+                            'is_escalated'    => $isEscalated,
+                            'create_ticket'   => $createTicket,
+                            'priority'        => $priority,
+                            'category'        => $category,
+                            'customer_email'  => $customerEmail,
                         ],
                         'source'        => 'db',
                         'priority'      => $priority,
@@ -198,28 +266,30 @@ class SupportController extends Controller
                         'is_escalated'  => $isEscalated,
                         'create_ticket' => $createTicket,
                         'has_image'     => false,
+                        'image_url'     => '',
+                        'image_base64'  => '',
+                        'mime_type'     => '',
                     ], $traceId);
                 } else {
+                    $messages = $this->buildOpenRouterContext($conversation->id);
                     $aiResult = $this->callSupportWorkflow([
-                        'user_id'         => $userId,
                         'conversation_id' => $conversation->id,
+                        'user_id'         => $userId,
+                        'customer_email'  => $customerEmail,
+                        'user_message'    => $originalMessage,
                         'message'         => $originalMessage,
-                        'message_clean'   => $detectMessage,
-                        'context'         => $this->buildConversationContext($conversation->id),
-                        'source'          => 'ai',
                         'priority'        => $priority,
                         'category'        => $category,
-                        'status'          => 'pending',
-                        'session_id'      => $request->input('session_id'),
+                        'source'          => $request->input('source') ?? 'web',
                         'is_urgent'       => $isUrgent,
                         'is_escalated'    => $isEscalated,
                         'create_ticket'   => $createTicket,
+                        'image_url'       => '',
+                        'image_base64'    => '',
+                        'mime_type'       => '',
                         'has_image'       => false,
-                        'image_url'       => null,
-                        'image_base64'    => null,
-                        'mime_type'       => null,
-                        'language'        => $language,
-                    ], $traceId, 75);
+                        'messages'        => $messages,
+                    ], $traceId, 30);
 
                     $solution       = $aiResult['message'];
                     $n8nUserMessage = $aiResult['user_message'] ?? null;
@@ -228,13 +298,43 @@ class SupportController extends Controller
                     $confidence     = $aiResult['ok'] ? 85 : 0;
                     $showTicket     = $aiResult['ok'];
 
-                    if ($aiResult['ok'] && $detectMessage !== '') {
-                        Solution::updateOrCreate(
-                            ['question' => $detectMessage],
-                            ['solution' => $solution]
-                        );
+                    if ($aiResult['ok']) {
+                        $isUrgent     = $aiResult['is_urgent'];
+                        $isEscalated  = $aiResult['is_escalated'];
+                        $createTicket = $aiResult['create_ticket'];
+                        $priority     = $aiResult['priority'];
+                        $category     = $aiResult['category'];
+                        $reason       = $aiResult['reason'];
+
+                        if ($detectMessage !== '') {
+                            Solution::updateOrCreate(
+                                ['question' => $detectMessage],
+                                ['solution' => $solution]
+                            );
+                        }
                     }
                 }
+            }
+
+            // Save AI response to DB if AI was used successfully
+            if (in_array($source, ['ai', 'vision_ai']) && $status !== 'error') {
+                \App\Models\AIResponse::create([
+                    'conversation_id' => $conversation->id,
+                    'user_id'         => $userId,
+                    'message'         => $solution,
+                    'user_message'    => $originalMessage !== '' ? $originalMessage : 'Screenshot envoye',
+                    'ai_response'     => $solution,
+                    'source'          => $source,
+                    'priority'        => $priority,
+                    'category'        => $category,
+                    'reason'          => $reason,
+                    'is_urgent'       => $isUrgent,
+                    'is_escalated'    => $isEscalated,
+                    'create_ticket'   => $createTicket,
+                    'has_image'       => $hasImage,
+                    'image_url'       => $image['image_url'],
+                    'mime_type'       => $image['mime_type'] ?? null,
+                ]);
             }
 
             Log::info('support.n8n.user_message_extracted', [
@@ -358,6 +458,8 @@ class SupportController extends Controller
                     'is_urgent'       => $isUrgent,
                     'is_escalated'    => $isEscalated,
                     'has_image'       => $hasImage,
+                    'image_url'       => $image['image_url'] ?? null,
+                    'mime_type'       => $image['mime_type'] ?? null,
                 ], $traceId);
 
                 $conversation->update([
@@ -368,6 +470,8 @@ class SupportController extends Controller
 
                 $jiraKey = $this->sendJiraWebhookAndGetKey([
                     'laravel_ticket_id' => $ticket->id,
+                    'customer_email'    => $customerEmail,
+                    'user_message'      => $originalMessage,
                     'message'           => $originalMessage,
                     'message_clean'     => $detectMessage,
                     'priority'          => $priority,
@@ -857,6 +961,9 @@ class SupportController extends Controller
                 'is_urgent'       => false,
                 'is_escalated'    => false,
                 'has_image'       => false,
+                'image_url'       => null,
+                'mime_type'       => null,
+                'ticket_status'   => 'pending',
             ], $traceId);
 
             $jiraKey = $this->sendJiraWebhookAndGetKey([
@@ -905,6 +1012,78 @@ class SupportController extends Controller
     // =========================================================================
     // PRIVATE — conversation
     // =========================================================================
+
+    /**
+     * Resolve the customer email from up to 5 sources (in priority order).
+     * GUARANTEES that a non-empty string is always returned.
+     *
+     * Source 1: $request->input('customer_email')   — explicit front-end field
+     * Source 2: Auth::user()->email                 — currently authenticated user
+     * Source 3: User::find($userId)->email          — user referenced by user_id
+     * Source 4: $conversation->user->email          — owner of the conversation
+     * Source 5: MAIL_FROM_ADDRESS env               — support mailbox as ultimate fallback
+     */
+    private function resolveCustomerEmail(Request $request, int $userId, ?Conversation $conversation = null): string
+    {
+        $fallback = (string) (env('MAIL_FROM_ADDRESS') ?: 'client@example.com');
+
+        // 1) Direct field from request
+        $email = trim((string) $request->input('customer_email', ''));
+        if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return $email;
+        }
+
+        // 2) Authenticated user
+        try {
+            if (Auth::check()) {
+                $authEmail = trim((string) Auth::user()->email);
+                if ($authEmail !== '' && filter_var($authEmail, FILTER_VALIDATE_EMAIL)) {
+                    return $authEmail;
+                }
+            }
+        } catch (Throwable $e) {
+            // ignore
+        }
+
+        // 3) User by id
+        try {
+            if ($userId > 0) {
+                $user = User::find($userId);
+                if ($user) {
+                    $uEmail = trim((string) $user->email);
+                    if ($uEmail !== '' && filter_var($uEmail, FILTER_VALIDATE_EMAIL)) {
+                        return $uEmail;
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+            // ignore
+        }
+
+        // 4) Conversation owner
+        try {
+            if ($conversation && $conversation->user_id) {
+                // Use the user relation if not yet loaded
+                $ownerEmail = trim((string) ($conversation->user?->email ?? ''));
+                if ($ownerEmail !== '' && filter_var($ownerEmail, FILTER_VALIDATE_EMAIL)) {
+                    return $ownerEmail;
+                }
+                // Fallback: load explicitly
+                $owner = User::find($conversation->user_id);
+                if ($owner) {
+                    $ownerEmail = trim((string) $owner->email);
+                    if ($ownerEmail !== '' && filter_var($ownerEmail, FILTER_VALIDATE_EMAIL)) {
+                        return $ownerEmail;
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+            // ignore
+        }
+
+        // 5) Ultimate fallback
+        return $fallback;
+    }
 
     private function resolveConversation(Request $request, int $userId, string $detectMessage, bool $hasImage): Conversation
     {
@@ -1021,6 +1200,9 @@ class SupportController extends Controller
             'is_urgent'       => $isUrgent,
             'is_escalated'    => $isEscalated,
             'has_image'       => (bool) ($data['has_image'] ?? false),
+            'image_url'       => $data['image_url']       ?? null,
+            'mime_type'       => $data['mime_type']       ?? null,
+            'ticket_status'   => 'pending',
         ]);
 
         Log::info('support.ticket.created', [
@@ -1044,9 +1226,10 @@ class SupportController extends Controller
         $startedAt = microtime(true);
 
         try {
+            $payload['runtime_config'] = $this->getRuntimeConfigForN8n();
             Log::info('support.jira.webhook.request', [
                 'trace_id'          => $traceId,
-                'url'               => $this->n8nWebhookJira,
+                'url'               => $this->getWebhookJiraUrl(),
                 'laravel_ticket_id' => $payload['laravel_ticket_id'] ?? null,
                 'category'          => $payload['category']          ?? null,
                 'priority'          => $payload['priority']          ?? null,
@@ -1054,9 +1237,8 @@ class SupportController extends Controller
 
             $response = Http::acceptJson()
                 ->asJson()
-                ->retry(2, 500)
-                ->timeout(30)
-                ->post($this->n8nWebhookJira, $payload);
+                ->timeout(15)
+                ->post($this->getWebhookJiraUrl(), $payload);
 
             $elapsedMs = (int) round((microtime(true) - $startedAt) * 1000);
 
@@ -1118,39 +1300,43 @@ class SupportController extends Controller
     {
         $startedAt = microtime(true);
 
-        Log::info('support.n8n.request', [
-            'trace_id' => $traceId,
-            'url'      => $this->n8nWebhookSupport,
-            'payload'  => $this->redactPayloadForLog($payload),
+        // Guarantee the 3 boolean flags are present and explicitly cast to true/false
+        // in the payload sent to n8n (in case some caller forgot to pass them).
+        $payload['is_urgent']     = (bool) ($payload['is_urgent']     ?? false);
+        $payload['is_escalated']  = (bool) ($payload['is_escalated']  ?? false);
+        $payload['create_ticket'] = (bool) ($payload['create_ticket'] ?? false);
+
+        Log::info('support.n8n.outgoing_payload', [
+            'trace_id'      => $traceId,
+            'is_urgent'     => $payload['is_urgent'],
+            'is_escalated'  => $payload['is_escalated'],
+            'create_ticket' => $payload['create_ticket'],
+            'has_image'     => (bool) ($payload['has_image'] ?? false),
+            'priority'      => $payload['priority'] ?? null,
+            'category'      => $payload['category'] ?? null,
         ]);
 
         try {
-            $response = Http::acceptJson()
-                ->asJson()
-                ->retry(3, 1000)
-                ->timeout($timeoutSeconds)
-                ->post($this->n8nWebhookSupport, $payload);
+            $result = \App\Services\N8nService::sendSupportWebhook($payload, $timeoutSeconds);
 
             $elapsedMs = (int) round((microtime(true) - $startedAt) * 1000);
 
-            Log::info('support.n8n.response', [
-                'trace_id'    => $traceId,
-                'http_status' => $response->status(),
-                'successful'  => $response->successful(),
-                'elapsed_ms'  => $elapsedMs,
-                'body'        => Str::limit($response->body(), 8000),
-            ]);
-
-            if (!$response->successful()) {
+            if (!$result['ok']) {
                 return [
-                    'ok'           => false,
-                    'message'      => 'Service IA indisponible actuellement. Merci de reessayer.',
-                    'user_message' => null,
-                    'status'       => $response->status(),
+                    'ok'            => false,
+                    'message'       => $result['message'] ?? 'Service IA indisponible actuellement. Merci de reessayer.',
+                    'user_message'  => null,
+                    'is_urgent'     => false,
+                    'is_escalated'  => false,
+                    'create_ticket' => false,
+                    'priority'      => 'medium',
+                    'category'      => 'general',
+                    'reason'        => null,
+                    'status'        => $result['status'] ?? 500,
                 ];
             }
 
-            $parsed = $this->parseFullN8nResponse($response->body(), $traceId);
+            $parsed = $this->parseFullN8nResponse($result['body'], $traceId);
 
             Log::info('support.n8n.workflow_result', [
                 'trace_id'     => $traceId,
@@ -1160,19 +1346,23 @@ class SupportController extends Controller
 
             if (!$parsed['message']) {
                 return [
-                    'ok'           => false,
-                    'message'      => 'Je suis desole, la reponse IA etait vide ou invalide. Merci de reessayer.',
-                    'user_message' => null,
-                    'status'       => $response->status(),
+                    'ok'            => false,
+                    'message'       => 'Je suis desole, la reponse IA etait vide ou invalide. Merci de reessayer.',
+                    'user_message'  => null,
+                    'is_urgent'     => false,
+                    'is_escalated'  => false,
+                    'create_ticket' => false,
+                    'priority'      => 'medium',
+                    'category'      => 'general',
+                    'reason'        => null,
+                    'status'        => $result['status'],
                 ];
             }
 
-            return [
-                'ok'           => true,
-                'message'      => $parsed['message'],
-                'user_message' => $parsed['user_message'],
-                'status'       => $response->status(),
-            ];
+            return array_merge([
+                'ok'     => true,
+                'status' => $result['status'],
+            ], $parsed);
 
         } catch (Throwable $e) {
             Log::error('support.error', [
@@ -1182,10 +1372,16 @@ class SupportController extends Controller
             ]);
 
             return [
-                'ok'           => false,
-                'message'      => 'Erreur connexion IA. Merci de reessayer dans quelques instants.',
-                'user_message' => null,
-                'status'       => 0,
+                'ok'            => false,
+                'message'       => 'Erreur connexion IA. Merci de reessayer dans quelques instants.',
+                'user_message'  => null,
+                'is_urgent'     => false,
+                'is_escalated'  => false,
+                'create_ticket' => false,
+                'priority'      => 'medium',
+                'category'      => 'general',
+                'reason'        => null,
+                'status'        => 0,
             ];
         }
     }
@@ -1200,7 +1396,16 @@ class SupportController extends Controller
      */
     private function parseFullN8nResponse(string $responseBody, string $traceId): array
     {
-        $default = ['message' => null, 'user_message' => null];
+        $default = [
+            'message'       => null,
+            'user_message'  => null,
+            'is_urgent'     => false,
+            'is_escalated'  => false,
+            'create_ticket' => false,
+            'priority'      => 'medium',
+            'category'      => 'general',
+            'reason'        => null,
+        ];
 
         $body = trim($responseBody);
 
@@ -1238,63 +1443,54 @@ class SupportController extends Controller
             'root'     => is_array($root) ? $root : ['raw' => $root],
         ]);
 
-        if (is_array($root) && isset($root['data']) && is_array($root['data'])) {
-            $dataNode = $root['data'];
-            $root     = array_merge($dataNode, $root);
-            unset($root['data']);
+        $responseNode = null;
+        if (is_array($root)) {
+            if (isset($root['response']) && is_array($root['response'])) {
+                $responseNode = $root['response'];
+            } elseif (isset($root['data']) && is_array($root['data'])) {
+                $responseNode = $root['data'];
+            }
+        }
+
+        $target = $responseNode ?? $root;
+
+        if (!is_array($target)) {
+            return $default;
+        }
+
+        $aiMessage = $target['message'] ?? $target['ai_response'] ?? $target['solution'] ?? null;
+        if (is_array($aiMessage)) {
+            $aiMessage = $this->extractMessageFromMixed($aiMessage);
+        }
+
+        $userMessage = $target['user_message'] ?? null;
+        if (!$userMessage && is_array($root)) {
+            $userMessage = $root['user_message'] ?? null;
         }
 
         Log::info('support.n8n.parsed_response', [
             'trace_id'     => $traceId,
-            'shape'        => is_array($root) ? array_keys($root) : gettype($root),
-            'user_message' => is_array($root) ? ($root['user_message'] ?? 'KEY_MISSING') : 'NOT_ARRAY',
-        ]);
-
-        $aiMessage   = $this->extractMessageFromMixed($root);
-        $userMessage = null;
-
-        if (is_array($root)) {
-            $raw = $root['user_message'] ?? null;
-
-            Log::info('support.user_message.raw', [
-                'trace_id' => $traceId,
-                'raw'      => $raw,
-            ]);
-
-            if (is_string($raw) && trim($raw) !== '') {
-                $userMessage = trim($raw);
-            }
-        }
-
-        if ($userMessage === null) {
-            $fallback = data_get($data, 'user_message')
-                     ?? data_get($data, '0.user_message')
-                     ?? data_get($data, 'data.user_message');
-
-            if (is_string($fallback) && trim($fallback) !== '') {
-                $userMessage = trim($fallback);
-            }
-        }
-
-        Log::info('support.user_message.extracted', [
-            'trace_id'     => $traceId,
+            'shape'        => is_array($target) ? array_keys($target) : gettype($target),
             'user_message' => $userMessage,
         ]);
 
         return [
-            'message'      => $aiMessage,
-            'user_message' => $userMessage,
+            'message'       => $aiMessage ? trim((string)$aiMessage) : null,
+            'user_message'  => $userMessage ? trim((string)$userMessage) : null,
+            'is_urgent'     => (bool)($target['is_urgent'] ?? false),
+            'is_escalated'  => (bool)($target['is_escalated'] ?? false),
+            'create_ticket' => (bool)($target['create_ticket'] ?? false),
+            'priority'      => $target['priority'] ?? 'medium',
+            'category'      => $target['category'] ?? 'general',
+            'reason'        => $target['reason'] ?? null,
         ];
     }
 
     private function fireAndLogSupportWebhook(array $payload, string $traceId): void
     {
         try {
-            Http::acceptJson()
-                ->asJson()
-                ->retry(2, 500)
-                ->timeout(30)
-                ->post($this->n8nWebhookSupport, $payload);
+            $payload['runtime_config'] = $this->getRuntimeConfigForN8n();
+            \App\Services\N8nService::sendSupportWebhook($payload, 5);
         } catch (Throwable $e) {
             Log::error('support.error', [
                 'context'  => 'fireAndLogSupportWebhook',
@@ -1338,6 +1534,50 @@ class SupportController extends Controller
         return $messages
             ->map(fn($m) => ($m->sender === 'bot' ? 'BOT' : 'USER') . ': ' . $m->content)
             ->implode("\n");
+    }
+
+    private function buildOpenRouterContext(int $conversationId): array
+    {
+        $dbMessages = Message::where('conversation_id', $conversationId)
+            ->orderBy('id', 'desc')
+            ->take(10)
+            ->get()
+            ->reverse();
+
+        $messages = [];
+        foreach ($dbMessages as $msg) {
+            $role = $msg->sender === 'bot' ? 'assistant' : 'user';
+
+            if ($msg->image_path && $role === 'user') {
+                $imageUrl = $msg->image_path;
+                if (!str_starts_with($imageUrl, 'http')) {
+                    $imageUrl = url($imageUrl);
+                }
+
+                $messages[] = [
+                    'role' => $role,
+                    'content' => [
+                        [
+                            'type' => 'text',
+                            'text' => $msg->content ?? 'Screenshot envoye',
+                        ],
+                        [
+                            'type' => 'image_url',
+                            'image_url' => [
+                                'url' => $imageUrl,
+                            ],
+                        ],
+                    ],
+                ];
+            } else {
+                $messages[] = [
+                    'role' => $role,
+                    'content' => $msg->content ?? '',
+                ];
+            }
+        }
+
+        return $messages;
     }
 
     private function findDatabaseSolution(string $detectMessage): ?array
@@ -1413,10 +1653,12 @@ class SupportController extends Controller
         }
 
         $paths = [
-            'response.message', 'data.message', 'message', 'solution',
+            'response', 'response.message', 'data.message', 'message', 'solution',
             'ai_response', 'response.ai_response', 'data.ai_response',
             'response.solution', 'data.solution', 'output.message',
             'output', 'text', 'answer', 'result.message', 'result',
+            'vision_response', 'vision_analysis', 'analysis', 'response.analysis',
+            'data.analysis', 'description'
         ];
 
         foreach ($paths as $path) {
@@ -1592,11 +1834,27 @@ class SupportController extends Controller
         $userMessage = $payload['user_message'] ?? null;
 
         return response()->json([
-            'success'      => true,
-            'message'      => $payload['message'] ?? 'OK',
-            'solution'     => $solution,
-            'user_message' => $userMessage,
-            'response'     => [
+            'success'         => true,
+            'conversation_id' => $payload['conversation_id'] ?? null,
+            'message'         => $payload['message'] ?? $solution,
+            'is_urgent'       => (bool) ($payload['is_urgent']     ?? false),
+            'is_escalated'    => (bool) ($payload['is_escalated']  ?? false),
+            'create_ticket'   => (bool) ($payload['create_ticket'] ?? false),
+            'priority'        => $payload['priority']        ?? 'medium',
+            'category'        => $payload['category']        ?? 'general',
+            'solution'        => $solution,
+            'user_message'    => $userMessage,
+            'ticket_id'       => $payload['ticket_id']       ?? null,
+            'jira_ticket_id'  => $payload['jira_ticket_id']  ?? null,
+            'show_ticket'     => (bool) ($payload['show_ticket'] ?? false),
+            'source'          => $payload['source']          ?? 'system',
+            'confidence'      => $payload['confidence']      ?? 0,
+            'image_url'       => $payload['image_url']       ?? null,
+            'language'        => $payload['language']        ?? 'en',
+            'status'          => $payload['status']          ?? 'pending',
+            'trace_id'        => $payload['trace_id']        ?? null,
+            'elapsed_ms'      => $payload['elapsed_ms']      ?? null,
+            'response'        => [
                 'message'         => $solution,
                 'user_message'    => $userMessage,
                 'is_urgent'       => (bool) ($payload['is_urgent']     ?? false),
@@ -1619,22 +1877,7 @@ class SupportController extends Controller
                 'ticket_id'       => $payload['ticket_id']       ?? null,
                 'jira_ticket_id'  => $payload['jira_ticket_id']  ?? null,
                 'conversation_id' => $payload['conversation_id'] ?? null,
-            ],
-            'ticket_id'       => $payload['ticket_id']       ?? null,
-            'jira_ticket_id'  => $payload['jira_ticket_id']  ?? null,
-            'show_ticket'     => (bool) ($payload['show_ticket'] ?? false),
-            'source'          => $payload['source']          ?? 'system',
-            'priority'        => $payload['priority']        ?? 'medium',
-            'category'        => $payload['category']        ?? 'general',
-            'confidence'      => $payload['confidence']      ?? 0,
-            'conversation_id' => $payload['conversation_id'] ?? null,
-            'image_url'       => $payload['image_url']       ?? null,
-            'is_urgent'       => (bool) ($payload['is_urgent']     ?? false),
-            'is_escalated'    => (bool) ($payload['is_escalated']  ?? false),
-            'language'        => $payload['language']        ?? 'en',
-            'status'          => $payload['status']          ?? 'pending',
-            'trace_id'        => $payload['trace_id']        ?? null,
-            'elapsed_ms'      => $payload['elapsed_ms']      ?? null,
+            ]
         ]);
     }
 
@@ -1665,13 +1908,13 @@ class SupportController extends Controller
         if (!$file) {
             return [
                 'has_image'    => false,
-                'image_url'    => null,
-                'image_base64' => null,
-                'mime_type'    => null,
+                'image_url'    => '',
+                'image_base64' => '',
+                'mime_type'    => '',
             ];
         }
 
-        $allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
+        $allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
         $mime         = $file->getMimeType();
 
         if (!in_array($mime, $allowedMimes, true)) {
@@ -1681,8 +1924,15 @@ class SupportController extends Controller
         $extension   = strtolower($file->getClientOriginalExtension() ?: $file->extension());
         $safeName    = now()->format('Ymd_His') . '_' . Str::uuid() . '.' . $extension;
         $imagePath   = $file->storeAs('support-images', $safeName, 'public');
-        $imageUrl    = Storage::disk('public')->url($imagePath);
-        $imageUrl    = str_replace(['127.0.0.1', 'localhost'], 'host.docker.internal', url($imageUrl));
+        
+        $urlPath     = Storage::disk('public')->url($imagePath);
+        if (!str_starts_with($urlPath, 'http')) {
+            $imageUrl = url($urlPath);
+        } else {
+            $imageUrl = $urlPath;
+        }
+        $imageUrl    = str_replace(['127.0.0.1', 'localhost'], 'host.docker.internal', $imageUrl);
+        
         $imageBase64 = base64_encode(file_get_contents($file->getRealPath()));
 
         Log::info('support.image.uploaded', [
