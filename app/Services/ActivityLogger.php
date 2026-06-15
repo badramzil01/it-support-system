@@ -7,22 +7,18 @@ use Illuminate\Support\Facades\Log;
 
 class ActivityLogger
 {
-    /**
-     * Create a new class instance.
-     */
-    public function __construct()
-    {
-        //
-    }
-    public static function log(string $action,?string $model = null,?int $modelId = null,?string $description = null, array $context = []) 
-    {
-        $userId = auth()->id();
 
-        Log::info($action, array_merge([
-            'user_id' => $userId,
-            'model' => $model,
-            'model_id' => $modelId,
-        ], $context));
+    public function log(
+        string $action,
+        ?string $model = null,
+        ?int $modelId = null,
+        ?string $description = null,
+        array $context = [],
+        ?array $old = null,
+        ?array $new = null
+    ): void {
+        
+        $userId = auth()->id();
 
         AuditLog::create([
             'user_id' => $userId,
@@ -30,7 +26,18 @@ class ActivityLogger
             'model' => $model,
             'model_id' => $modelId,
             'description' => $description,
-            'ip_address' => request()->ip(),
+            'old_values' => $old,
+            'new_values' => $new,
+            'ip_address' => request()?->ip(),
         ]);
+
+        Log::channel('audit')->info('audit', [
+            'action' => $action,
+            'user_id' => $userId,
+            'model' => $model,
+            'model_id' => $modelId,
+            'context' => $context,
+        ]);
+
     }
 }

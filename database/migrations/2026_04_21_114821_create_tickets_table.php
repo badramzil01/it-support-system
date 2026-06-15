@@ -15,6 +15,7 @@ return new class extends Migration
             $table->foreignId('message_id')
                   ->constrained()
                   ->onDelete('cascade');
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
 
             $table->string('jira_ticket_id')->nullable();
             $table->text('solution');

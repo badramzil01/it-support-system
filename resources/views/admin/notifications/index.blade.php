@@ -1,4 +1,4 @@
-@extends('support.layouts.app')
+@extends('admin.layouts.app')
 @section('title','Notifications')
 @section('content')
 <div class="space-y-4">
@@ -102,8 +102,7 @@
         document.querySelectorAll('.mark-read-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 e.preventDefault();
-                const id = e.target.dataset.id;
-                const res = await fetch(`{{ url('equipeIT/ui/notifications') }}/${id}/read`, { method: 'POST', headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' } });
+                const id = e.currentTarget.dataset.id;                const res = await fetch(`{{ url('equipeIT/ui/notifications') }}/${id}/read`, { method: 'POST', headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' } });
                 if (res.ok) {
                     const node = document.querySelector(`div[data-notif-id='${id}']`);
                     node.querySelector('.mark-read-btn')?.remove();

@@ -65,6 +65,27 @@
         <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">Basculer le thème de l'application (persisté en local)</p>
     </div>
 </div>
+<div class="mt-8 pt-6 border-t border-slate-200 dark:border-slate-700">
+    <h4 class="font-semibold text-slate-900 dark:text-slate-100">
+        Journaux système
+    </h4>
+
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">
+        Télécharger le fichier de logs pour le diagnostic et le débogage.
+    </p>
+
+    <div class="mt-4">
+        <a href="{{route('admin.settings.logs.download')}}"
+           class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none"
+                 viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M12 16v-8m0 8l-3-3m3 3l3-3M5 20h14"/>
+            </svg>
+            Télécharger les logs
+        </a>
+    </div>
+</div>
 
 @push('scripts')
 <script>

@@ -224,4 +224,26 @@ class SettingsController extends Controller
                 ),
         ];
     }
+<<<<<<< HEAD
 }
+=======
+    public function download_log_file()
+    {
+        $logFile = storage_path('logs/audit.log');
+
+        if (!File::exists($logFile)) {
+            return back()->with('error', 'Aucun fichier de log trouvé.');
+        }
+
+        $content = File::get($logFile);
+
+        $fileName = 'Journal_' . now()->format('Y_m_d_His') . '.txt';
+
+        return response($content)
+            ->header('Content-Type', 'text/plain')
+            ->header('Content-Disposition', "attachment; filename=$fileName");
+    }
+
+    
+}
+>>>>>>> 492831035b0ac45d3befcc2e440ef9e0a8ea53e9

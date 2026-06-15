@@ -192,23 +192,23 @@ class DashboardController extends Controller
     public function ListeUsers(Request $request)
     {
         $users = User::with('roles')->get();
-        $user = null;
+        $editUser = null;
         $roles = Role::all();
 
         if ($request->has('edit')) {
-            $user = User::findOrFail($request->edit);
+        $editUser = User::findOrFail($request->edit);
         }
 
-        return view('admin.users.index', compact('users', 'user','roles'));
+        return view('admin.users.index', compact('users', 'editUser','roles'));
     }
 
     public function EnregistrerUser(Request $request)
-    {
+    { 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|min:8',
-            'roles' => 'nullable|array'
+            'role' => 'nullable'
         ]);
 
         $user = User::create([
@@ -217,8 +217,8 @@ class DashboardController extends Controller
             'password' => Hash::make($validated['password']),
         ]);
 
-        if (!empty($validated['roles'])) {
-            $user->assignRole($validated['roles']);
+        if (!empty($validated['role'])) {
+            $user->assignRole($validated['role']);
         }
 
         return redirect()
@@ -226,13 +226,15 @@ class DashboardController extends Controller
             ->with('success', 'Utilisateur créé avec succès');
     }
 
-    public function ModifierUser(Request $request, User $user)
-    {
+    public function ModifierUser(Request $request, $id)
+    { 
+
+        $user = User::findOrFail($id);
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,' . $user->id,
             'password' => 'nullable|min:8',
-            'roles' => 'nullable|array'
+            'role' => 'nullable'
         ]);
 
         $user->name = $validated['name'];
@@ -243,7 +245,7 @@ class DashboardController extends Controller
         }
 
         $user->save();
-        $user->syncRoles($validated['roles'] ?? []);
+        $user->syncRoles($validated['role'] ?? "");
 
         return redirect()
             ->route('admin.ui.users.index')
