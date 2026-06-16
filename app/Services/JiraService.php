@@ -22,38 +22,59 @@ class JiraService
     /**
      * Create a new Jira issue.
      */
-    public function createTicket($summary, $description)
+    public function createTicket($summary, $description, $category = null, $priority = null)
     {
+        $fields = [
+            "project" => [
+                "key" => env('JIRA_PROJECT_KEY')
+            ],
+            "summary" => $summary,
+            "description" => [
+                "type" => "doc",
+                "version" => 1,
+                "content" => [
+                    [
+                        "type" => "paragraph",
+                        "content" => [
+                            [
+                                "type" => "text",
+                                "text" => $description
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            "issuetype" => [
+                "name" => "Task"
+            ],
+        ];
+
+        // Add category as labels if provided
+        if ($category && $category !== 'general') {
+            $fields["labels"] = [strtolower(str_replace(' ', '_', $category))];
+        }
+
+        // Add priority mapping if provided
+        if ($priority) {
+            $priorityMap = [
+                'critical' => 'Highest',
+                'high'     => 'High',
+                'medium'   => 'Medium',
+                'low'      => 'Low',
+            ];
+            $jiraPriority = $priorityMap[$priority] ?? null;
+            if ($jiraPriority) {
+                $fields["priority"] = ["name" => $jiraPriority];
+            }
+        }
+
         $response = Http::withBasicAuth(
             $this->email,
             $this->token
         )->post(
             $this->baseUrl . '/rest/api/3/issue',
             [
-                "fields" => [
-                    "project" => [
-                        "key" => env('JIRA_PROJECT_KEY')
-                    ],
-                    "summary" => $summary,
-                    "description" => [
-                        "type" => "doc",
-                        "version" => 1,
-                        "content" => [
-                            [
-                                "type" => "paragraph",
-                                "content" => [
-                                    [
-                                        "type" => "text",
-                                        "text" => $description
-                                    ]
-                                ]
-                            ]
-                        ]
-                    ],
-                    "issuetype" => [
-                        "name" => "Task"
-                    ]
-                ]
+                "fields" => $fields
             ]
         );
 
@@ -234,5 +255,31 @@ class JiraService
     public function moveToDone(string $issueKey): bool
     {
         return $this->moveToStatus($issueKey, 'resolved');
+    }
+
+    /**
+     * Update labels on an existing Jira issue.
+     */
+    public function updateLabels(string $issueKey, array $labels): bool
+    {
+        $response = Http::withBasicAuth(
+            $this->email,
+            $this->token
+        )->put(
+            $this->baseUrl . '/rest/api/3/issue/' . $issueKey,
+            [
+                'fields' => [
+                    'labels' => $labels,
+                ]
+            ]
+        );
+
+        Log::info('jira.update_labels.response', [
+            'issue' => $issueKey,
+            'labels' => $labels,
+            'status' => $response->status(),
+        ]);
+
+        return $response->successful();
     }
 }
