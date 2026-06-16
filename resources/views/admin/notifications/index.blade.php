@@ -76,7 +76,7 @@
                             @if(! $read)
                                 <button class="mark-read-btn text-xs px-3 py-1 rounded bg-amber-50 text-amber-700 hover:bg-amber-100" data-id="{{ $n->id }}">Marquer lu</button>
                             @endif
-                            <form method="POST" action="{{ route('support.ui.notifications.destroy', $n->id) }}" onsubmit="return confirm('Supprimer cette notification ?');">
+                            <form method="POST" action="{{ route('admin.notifications.destroy', $n->id) }}" onsubmit="return confirm('Supprimer cette notification ?');">
                                 @csrf
                                 @method('DELETE')
                                 <button type="submit" class="text-xs px-3 py-1 rounded bg-red-50 text-red-700 hover:bg-red-100">Supprimer</button>

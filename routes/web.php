@@ -17,7 +17,6 @@ use App\Http\Controllers\Admin\InternalCommunicationController as AdminInternalC
 use App\Http\Controllers\ItSupportEquipe\DashboardController as SupportITDashboardController;
 use App\Http\Controllers\ItSupportEquipe\SupportTicketController;
 
-use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\SupportUI\DashboardController as SupportUIDashboardController;
 use App\Http\Controllers\SupportUI\TicketController as SupportUITicketController;
 use App\Http\Controllers\SupportUI\ConversationController as SupportUIConversationController;
@@ -126,6 +125,9 @@ Route::middleware(['auth', 'role:admin'])
         Route::get('/users', [AdminDashboardController::class, 'ListeUsers'])->name('ui.users.index');
         Route::post('/users/store', [AdminDashboardController::class, 'EnregistrerUser'])->name('ui.users.store');
         Route::put('/users/modifier/{id}', [AdminDashboardController::class, 'ModifierUser'])->name('ui.users.update');
+        Route::post('/tickets/{ticket}/assign-to-me', [AdminTicketController::class, 'assignToMe'])->name('ui.tickets.assignToMe');
+        Route::get('/users/{user}/permissions', [AdminDashboardController::class, 'getUserPermissions'])->name('ui.users.getPermissions');
+        Route::put('/users/{user}/permissions', [AdminDashboardController::class, 'updatePermissions'])->name('ui.users.updatePermissions');
         Route::delete('/users/{user}/delete', [AdminDashboardController::class, 'SupprimerUser'])->name('ui.users.delete');
 
         // Roles & Permissions
@@ -144,7 +146,7 @@ Route::middleware(['auth', 'role:admin'])
             Route::put('/password', [AdminSettingsController::class, 'updatePassword'])->name('password.update');
             Route::put('/appearance', [AdminSettingsController::class, 'updateAppearance'])->name('appearance.update');
             Route::put('/integrations', [AdminSettingsController::class, 'updateIntegrations'])->name('integrations.update');
-            Route::get('/logs/download', [SettingsController::class, 'download_log_file'])->name('logs.download');
+            Route::get('/logs/download', [AdminSettingsController::class, 'download_log_file'])->name('logs.download');
         });
 
         // AI Responses
@@ -185,7 +187,7 @@ Route::middleware(['auth', 'role:support'])
         Route::get('/conversations', [SupportITDashboardController::class, 'listeConversations'])->name('discussions.index');
 
         // Notifications
-        Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications');
+        Route::get('/notifications', [SupportUINotificationController::class, 'index'])->name('notifications');
 
 
         // New Support UI pages

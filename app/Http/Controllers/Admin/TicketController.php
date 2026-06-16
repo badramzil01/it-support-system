@@ -49,6 +49,12 @@ class TicketController extends Controller
         return view('admin.tickets.show', compact('ticket'));
     }
 
+    public function assignToMe(Ticket $ticket)
+    {
+        $ticket->update(['assigned_to' => auth()->id()]);
+        return back()->with('success', 'Ticket assigné avec succès.');
+    }
+
     public function updateStatus(Request $request, Ticket $ticket)
     {
         $request->validate(['status' => 'required|string']);

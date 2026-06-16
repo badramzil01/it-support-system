@@ -9,6 +9,7 @@ use App\Services\N8nService;
 use App\Support\SettingsManager;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
@@ -21,10 +22,10 @@ class SettingsController extends Controller
     {
         $this->configSyncService = $configSyncService;
     }
+
     public function index()
     {
         $integrations = $this->getIntegrations();
-
         return view('admin.settings.index', compact('integrations'));
     }
 
@@ -75,9 +76,7 @@ class SettingsController extends Controller
     public function updateAppearance(Request $request)
     {
         $theme = $request->input('theme', 'light');
-
         Setting::setValue('ui.theme', $theme);
-
         return back()->with('success', 'Thème mis à jour');
     }
 
@@ -86,7 +85,6 @@ class SettingsController extends Controller
         Log::info('==============================');
         Log::info('UPDATE INTEGRATIONS START');
         Log::info('==============================');
-
         Log::info('Request Data', $request->all());
 
         $fields = [
@@ -101,7 +99,6 @@ class SettingsController extends Controller
             'integration.refresh_config_webhook',
         ];
 
-        // Mapping settings key to IntegrationConfig service & key
         $configMap = [
             'integration.jira_url'               => ['jira', 'url'],
             'integration.jira_token'             => ['jira', 'token'],
@@ -136,7 +133,6 @@ class SettingsController extends Controller
                     $this->configSyncService->save($service, $key, $value, false);
                 }
             } else {
-                // If it is not in the configMap (like openai_api_key)
                 if (empty($value)) {
                     Setting::where('key', $field)->delete();
                     cache()->forget("setting_{$field}");
@@ -148,7 +144,6 @@ class SettingsController extends Controller
             }
         }
 
-        // Trigger config sync to n8n once at the end
         $syncResult = $this->configSyncService->syncAll();
 
         Log::info('==============================');
@@ -159,74 +154,24 @@ class SettingsController extends Controller
             return back()->with('error', $syncResult['message']);
         }
 
-        return back()->with(
-            'success',
-            'Intégrations mises à jour et configuration n8n synchronisée'
-        );
+        return back()->with('success', 'Intégrations mises à jour et configuration n8n synchronisée');
     }
 
     private function getIntegrations(): array
     {
         return [
-
-            'openai_api_key' =>
-                SettingsManager::get(
-                    'integration.openai_api_key',
-                    'OPENAI_API_KEY'
-                ),
-
-            'openrouter_api_key' =>
-                SettingsManager::get(
-                    'integration.openrouter_api_key',
-                    'OPENROUTER_API_KEY'
-                ),
-
-            'gemini_api_key' =>
-                SettingsManager::get(
-                    'integration.gemini_api_key',
-                    'GEMINI_API_KEY'
-                ),
-
-            'jira_url' =>
-                SettingsManager::get(
-                    'integration.jira_url',
-                    'JIRA_URL'
-                ),
-
-            'jira_token' =>
-                SettingsManager::get(
-                    'integration.jira_token',
-                    'JIRA_TOKEN'
-                ),
-
-            'gmail_address' =>
-                SettingsManager::get(
-                    'integration.gmail_address',
-                    'MAIL_FROM_ADDRESS'
-                ),
-
-            'n8n_webhook' =>
-                SettingsManager::get(
-                    'integration.n8n_webhook',
-                    'N8N_WEBHOOK_URL'
-                ),
-
-            'laravel_api_url' =>
-                SettingsManager::get(
-                    'integration.laravel_api_url',
-                    'APP_URL'
-                ),
-
-            'refresh_config_webhook' =>
-                SettingsManager::get(
-                    'integration.refresh_config_webhook',
-                    null
-                ),
+            'openai_api_key' => SettingsManager::get('integration.openai_api_key', 'OPENAI_API_KEY'),
+            'openrouter_api_key' => SettingsManager::get('integration.openrouter_api_key', 'OPENROUTER_API_KEY'),
+            'gemini_api_key' => SettingsManager::get('integration.gemini_api_key', 'GEMINI_API_KEY'),
+            'jira_url' => SettingsManager::get('integration.jira_url', 'JIRA_URL'),
+            'jira_token' => SettingsManager::get('integration.jira_token', 'JIRA_TOKEN'),
+            'gmail_address' => SettingsManager::get('integration.gmail_address', 'MAIL_FROM_ADDRESS'),
+            'n8n_webhook' => SettingsManager::get('integration.n8n_webhook', 'N8N_WEBHOOK_URL'),
+            'laravel_api_url' => SettingsManager::get('integration.laravel_api_url', 'APP_URL'),
+            'refresh_config_webhook' => SettingsManager::get('integration.refresh_config_webhook', null),
         ];
     }
-<<<<<<< HEAD
-}
-=======
+
     public function download_log_file()
     {
         $logFile = storage_path('logs/audit.log');
@@ -236,14 +181,10 @@ class SettingsController extends Controller
         }
 
         $content = File::get($logFile);
-
         $fileName = 'Journal_' . now()->format('Y_m_d_His') . '.txt';
 
         return response($content)
             ->header('Content-Type', 'text/plain')
             ->header('Content-Disposition', "attachment; filename=$fileName");
     }
-
-    
 }
->>>>>>> 492831035b0ac45d3befcc2e440ef9e0a8ea53e9

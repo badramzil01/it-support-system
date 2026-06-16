@@ -32,6 +32,8 @@ class GlobalObserver
             'updated',
             get_class($model),
             $model->id,
+            'Model updated',
+            [],
             $model->getOriginal(),
             $model->getChanges()
         );

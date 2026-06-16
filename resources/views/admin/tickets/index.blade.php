@@ -31,7 +31,7 @@ function sortIcon($col, $sort, $direction) {
 
     {{-- ── FILTER BAR ── --}}
     <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
-        <form method="GET" action="{{ route('support.ui.tickets.index') }}">
+        <form method="GET" action="{{ route('admin.ui.tickets.index') }}">
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-3">
 
                 {{-- Search --}}
@@ -114,7 +114,7 @@ function sortIcon($col, $sort, $direction) {
                         </label>
                     </div>
                     <div class="flex items-center gap-2">
-                        <a href="{{ route('support.ui.tickets.index') }}"
+                        <a href="{{ route('admin.ui.tickets.index') }}"
                            class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
                             Réinitialiser
                         </a>
@@ -194,7 +194,7 @@ function sortIcon($col, $sort, $direction) {
 
                             {{-- Titre --}}
                             <td class="px-4 py-3 max-w-xs">
-                                <a href="{{ route('support.ui.tickets.show', $t) }}"
+                                <a href="{{ route('admin.ui.tickets.show', $t) }}"
                                    class="font-medium text-slate-900 dark:text-slate-100 hover:text-blue-600 dark:hover:text-amber-400 transition line-clamp-2">
                                     {{ Str::limit($t->title, 65) }}
                                 </a>
@@ -270,21 +270,21 @@ function sortIcon($col, $sort, $direction) {
                             {{-- Actions --}}
                             <td class="px-4 py-3 whitespace-nowrap">
                                 <div class="flex items-center gap-1.5">
-                                    <a href="{{ route('support.ui.tickets.show', $t) }}"
+                                    <a href="{{ route('admin.ui.tickets.show', $t) }}"
                                        class="inline-flex items-center gap-1 rounded-lg bg-amber-600 px-2.5 py-1.5 text-[11px] font-medium text-white hover:bg-amber-700 transition">
                                         <svg class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/><path fill-rule="evenodd" d="M.664 10.59a1.651 1.651 0 0 1 0-1.186A10.004 10.004 0 0 1 10 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0 1 10 17c-4.257 0-7.893-2.66-9.336-6.41Z" clip-rule="evenodd"/></svg>
                                         Voir
                                     </a>
 
                                     @if($t->conversation_id)
-                                        <a href="{{ route('support.ui.conversations.index', ['conversation_id' => $t->conversation_id]) }}"
+                                        <a href="{{ route('admin.ui.conversations.index', ['conversation_id' => $t->conversation_id]) }}"
                                            class="inline-flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 px-2.5 py-1.5 text-[11px] font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
                                             <svg class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M2 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5Zm3.293 1.293a1 1 0 0 1 1.414 0l3 3a1 1 0 0 1 0 1.414l-3 3a1 1 0 0 1-1.414-1.414L7.586 10 5.293 7.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd"/></svg>
                                             Chat
                                         </a>
                                     @endif
 
-                                    <form method="POST" action="{{ route('support.ui.tickets.assignToMe', $t) }}">
+                                    <form method="POST" action="{{ route('admin.ui.tickets.assignToMe', $t) }}">
                                         @csrf
                                         <button class="inline-flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 px-2.5 py-1.5 text-[11px] font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
                                             <svg class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path d="M10 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-7 8a7 7 0 1 1 14 0 .75.75 0 0 1-.75.75H3.75A.75.75 0 0 1 3 17Z"/></svg>
@@ -292,7 +292,7 @@ function sortIcon($col, $sort, $direction) {
                                         </button>
                                     </form>
 
-                                    <form method="POST" action="{{ route('support.ui.tickets.updateStatus', $t) }}" class="flex items-center gap-1">
+                                    <form method="POST" action="{{ route('admin.ui.tickets.updateStatus', $t) }}" class="flex items-center gap-1">
                                         @csrf
                                         <select name="status"
                                                 onchange="this.form.submit()"

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 
 class JiraService
 {
@@ -18,6 +19,9 @@ class JiraService
         $this->token = env('JIRA_API_TOKEN');
     }
 
+    /**
+     * Create a new Jira issue.
+     */
     public function createTicket($summary, $description)
     {
         $response = Http::withBasicAuth(
@@ -61,27 +65,105 @@ class JiraService
         return $response->json();
     }
 
-    public function getTransitions(string $issueKey)
+    /**
+     * Get available transitions for an issue from Jira.
+     */
+    public function getTransitions(string $issueKey): array
     {
-        $response = Http::withBasicAuth(
-            $this->email,
-            $this->token
-        )->get(
-            $this->baseUrl .
-            '/rest/api/3/issue/' .
-            $issueKey .
-            '/transitions'
-        );
+        $cacheKey = "jira_transitions_{$issueKey}";
 
-        Log::info('jira.transitions', [
-            'issue' => $issueKey,
-            'status' => $response->status(),
-            'body' => $response->body(),
-        ]);
+        return Cache::remember($cacheKey, now()->addMinutes(30), function () use ($issueKey) {
+            $response = Http::withBasicAuth(
+                $this->email,
+                $this->token
+            )->get(
+                $this->baseUrl .
+                '/rest/api/3/issue/' .
+                $issueKey .
+                '/transitions'
+            );
 
-        return $response;
+            Log::info('jira.transitions', [
+                'issue' => $issueKey,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+
+            if ($response->successful()) {
+                return $response->json('transitions', []);
+            }
+
+            return [];
+        });
     }
 
+    /**
+     * Find a transition ID by name (case-insensitive partial match).
+     */
+    public function findTransitionId(string $issueKey, string $statusName): ?string
+    {
+        $transitions = $this->getTransitions($issueKey);
+
+        // Normalize the target status name
+        $normalizedTarget = strtolower(trim($statusName));
+
+        // Map our internal statuses to common Jira transition names
+        $nameMap = [
+            'open'        => ['todo', 'to do', 'backlog', 'open', ' reopen', 'reopened'],
+            'in_progress' => ['in progress', 'start progress', 'start', 'doing'],
+            'resolved'    => ['done', 'resolve', 'resolved', 'complete', 'closed', 'close'],
+            'closed'      => ['done', 'close', 'closed', 'resolved', 'complete'],
+        ];
+
+        $searchTerms = $nameMap[$normalizedTarget] ?? [$normalizedTarget];
+
+        foreach ($transitions as $transition) {
+            $transitionName = strtolower($transition['name'] ?? '');
+
+            foreach ($searchTerms as $term) {
+                if (str_contains($transitionName, trim($term))) {
+                    Log::info('jira.transition.found', [
+                        'issue' => $issueKey,
+                        'target_status' => $statusName,
+                        'matched_name' => $transition['name'],
+                        'transition_id' => $transition['id'],
+                    ]);
+                    return (string) $transition['id'];
+                }
+            }
+        }
+
+        // Fallback: try exact env variable IDs
+        $envKeyMap = [
+            'open'        => 'JIRA_TRANSITION_TODO',
+            'in_progress' => 'JIRA_TRANSITION_IN_PROGRESS',
+            'resolved'    => 'JIRA_TRANSITION_DONE',
+            'closed'      => 'JIRA_TRANSITION_DONE',
+        ];
+
+        $envKey = $envKeyMap[$normalizedTarget] ?? null;
+        if ($envKey && env($envKey)) {
+            Log::info('jira.transition.fallback_env', [
+                'issue' => $issueKey,
+                'target_status' => $statusName,
+                'env_key' => $envKey,
+                'env_value' => env($envKey),
+            ]);
+            return (string) env($envKey);
+        }
+
+        Log::warning('jira.transition.not_found', [
+            'issue' => $issueKey,
+            'target_status' => $statusName,
+            'available' => array_map(fn($t) => $t['name'] ?? '', $transitions),
+        ]);
+
+        return null;
+    }
+
+    /**
+     * Update an issue's status by transitioning it.
+     */
     public function updateTicketStatus(
         string $issueKey,
         string $transitionId
@@ -117,42 +199,40 @@ class JiraService
         return $response->successful();
     }
 
+    /**
+     * Move an issue to a status by name (dynamic transition lookup).
+     */
+    public function moveToStatus(string $issueKey, string $statusName): bool
+    {
+        // Clear cached transitions for this issue to ensure fresh data
+        Cache::forget("jira_transitions_{$issueKey}");
+
+        $transitionId = $this->findTransitionId($issueKey, $statusName);
+
+        if ($transitionId === null) {
+            Log::warning('jira.move.skip', [
+                'issue' => $issueKey,
+                'status' => $statusName,
+                'reason' => 'No matching transition found',
+            ]);
+            return false;
+        }
+
+        return $this->updateTicketStatus($issueKey, $transitionId);
+    }
+
     public function moveToTodo(string $issueKey): bool
     {
-        Log::info('MOVE TO TODO', [
-            'issue' => $issueKey,
-            'transition' => env('JIRA_TRANSITION_TODO')
-        ]);
-
-        return $this->updateTicketStatus(
-            $issueKey,
-            env('JIRA_TRANSITION_TODO')
-        );
+        return $this->moveToStatus($issueKey, 'open');
     }
 
     public function moveToInProgress(string $issueKey): bool
     {
-        Log::info('MOVE TO IN PROGRESS', [
-            'issue' => $issueKey,
-            'transition' => env('JIRA_TRANSITION_IN_PROGRESS')
-        ]);
-
-        return $this->updateTicketStatus(
-            $issueKey,
-            env('JIRA_TRANSITION_IN_PROGRESS')
-        );
+        return $this->moveToStatus($issueKey, 'in_progress');
     }
 
     public function moveToDone(string $issueKey): bool
     {
-        Log::info('MOVE TO DONE', [
-            'issue' => $issueKey,
-            'transition' => env('JIRA_TRANSITION_DONE')
-        ]);
-
-        return $this->updateTicketStatus(
-            $issueKey,
-            env('JIRA_TRANSITION_DONE')
-        );
+        return $this->moveToStatus($issueKey, 'resolved');
     }
 }

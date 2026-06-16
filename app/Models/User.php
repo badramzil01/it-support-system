@@ -43,7 +43,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Relations
+     * ─── RELATIONS ───────────────────────────────────────────────
      */
     public function messages()
     {
@@ -55,9 +55,6 @@ class User extends Authenticatable
         return $this->hasOne(Message::class)->latestOfMany();
     }
 
-    /**
-     * Conversations started by the user
-     */
     public function conversations()
     {
         return $this->hasMany(Conversation::class);
@@ -68,9 +65,6 @@ class User extends Authenticatable
         return $this->hasMany(Ticket::class);
     }
 
-    /**
-     * Solutions de la base de connaissance créées par cet utilisateur
-     */
     public function knowledgeBaseItems()
     {
         return $this->hasMany(KnowledgeBase::class, 'author_id');
@@ -81,32 +75,23 @@ class User extends Authenticatable
         return $this->hasMany(KnowledgeBase::class, 'last_modified_by');
     }
 
-    /**
-     * Internal messages sent by this user
-     */
     public function sentInternalMessages()
     {
         return $this->hasMany(InternalMessage::class, 'sender_id');
     }
 
-    /**
-     * Internal messages received by this user
-     */
     public function receivedInternalMessages()
     {
         return $this->hasMany(InternalMessage::class, 'receiver_id');
     }
 
-    /**
-     * Unread internal messages received by this user
-     */
     public function unreadInternalMessages()
     {
         return $this->receivedInternalMessages()->unread();
     }
 
     /**
-     * Helpers
+     * ─── ROLE HELPERS ────────────────────────────────────────────
      */
     public function isAdmin(): bool
     {
@@ -121,5 +106,53 @@ class User extends Authenticatable
     public function isClient(): bool
     {
         return !$this->hasRole('admin') && !$this->hasRole('support');
+    }
+
+    /**
+     * ─── PERMISSION HELPERS ──────────────────────────────────────
+     * Admin always bypasses all permission checks.
+     */
+
+    /**
+     * Check if the user has a specific permission (admin bypasses).
+     */
+    public function hasPermission(string $permission): bool
+    {
+        if ($this->isAdmin()) {
+            return true;
+        }
+
+        return $this->hasPermissionTo($permission);
+    }
+
+    /**
+     * Check if the user has any of the given permissions.
+     */
+    public function hasAnyPermission(array $permissions): bool
+    {
+        if ($this->isAdmin()) {
+            return true;
+        }
+
+        return $this->hasAnyPermission($permissions);
+    }
+
+    /**
+     * Get all permissions grouped by category for the user.
+     */
+    public function getPermissionsByGroup(): array
+    {
+        $grouped = \App\Services\PermissionService::getGrouped();
+        $userPermissions = $this->getAllPermissions()->pluck('name')->toArray();
+
+        $result = [];
+        foreach ($grouped as $group => $permissions) {
+            $result[$group] = array_map(fn($perm) => [
+                'name' => $perm,
+                'granted' => in_array($perm, $userPermissions),
+            ], $permissions);
+        }
+
+        return $result;
     }
 }

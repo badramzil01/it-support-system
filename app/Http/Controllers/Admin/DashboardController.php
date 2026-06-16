@@ -194,21 +194,23 @@ class DashboardController extends Controller
         $users = User::with('roles')->get();
         $editUser = null;
         $roles = Role::all();
+        $groupedPermissions = \App\Services\PermissionService::getGrouped();
 
         if ($request->has('edit')) {
-        $editUser = User::findOrFail($request->edit);
+            $editUser = User::with('roles', 'permissions')->findOrFail($request->edit);
         }
 
-        return view('admin.users.index', compact('users', 'editUser','roles'));
+        return view('admin.users.index', compact('users', 'editUser', 'roles', 'groupedPermissions'));
     }
 
     public function EnregistrerUser(Request $request)
-    { 
+    {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|min:8',
-            'role' => 'nullable'
+            'role' => 'nullable',
+            'permissions' => 'nullable|array',
         ]);
 
         $user = User::create([
@@ -221,20 +223,25 @@ class DashboardController extends Controller
             $user->assignRole($validated['role']);
         }
 
+        // Sync individual permissions (for support users)
+        if (!empty($validated['permissions'])) {
+            $user->syncPermissions($validated['permissions']);
+        }
+
         return redirect()
             ->route('admin.ui.users.index')
             ->with('success', 'Utilisateur créé avec succès');
     }
 
     public function ModifierUser(Request $request, $id)
-    { 
-
+    {
         $user = User::findOrFail($id);
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,' . $user->id,
             'password' => 'nullable|min:8',
-            'role' => 'nullable'
+            'role' => 'nullable',
+            'permissions' => 'nullable|array',
         ]);
 
         $user->name = $validated['name'];
@@ -247,9 +254,64 @@ class DashboardController extends Controller
         $user->save();
         $user->syncRoles($validated['role'] ?? "");
 
+        // Sync individual permissions (only for non-admin roles)
+        $roleName = $validated['role'] ?? '';
+        if ($roleName !== 'admin') {
+            $user->syncPermissions($validated['permissions'] ?? []);
+        } else {
+            // Admin gets all permissions automatically
+            $user->syncPermissions(Permission::all());
+        }
+
+        // Clear permission cache
+        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+
         return redirect()
             ->route('admin.ui.users.index')
             ->with('success', 'Utilisateur modifié avec succès');
+    }
+
+    /**
+     * Get user permissions (JSON API for modal).
+     */
+    public function getUserPermissions($id)
+    {
+        $user = User::with('permissions')->findOrFail($id);
+
+        return response()->json([
+            'user_id' => $user->id,
+            'name' => $user->name,
+            'role' => $user->getRoleNames()->first(),
+            'permissions' => $user->getAllPermissions()->pluck('name')->toArray(),
+        ]);
+    }
+
+    /**
+     * Update only the permissions for a user (AJAX).
+     */
+    public function updatePermissions(Request $request, $id)
+    {
+        $user = User::findOrFail($id);
+
+        // Admin always has all permissions
+        if ($user->isAdmin()) {
+            return back()->with('success', 'Admin has all permissions automatically.');
+        }
+
+        $validated = $request->validate([
+            'permissions' => 'required|array',
+        ]);
+
+        $user->syncPermissions($validated['permissions']);
+
+        // Clear permission cache
+        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true, 'message' => 'Permissions updated']);
+        }
+
+        return back()->with('success', 'Permissions mises à jour avec succès');
     }
 
     public function SupprimerUser(User $user)
@@ -369,15 +431,16 @@ class DashboardController extends Controller
     {
         $roles = Role::with('permissions')->get();
         $permissions = Permission::all();
-        $role= null;
-        $p=null;
+        $groupedPermissions = \App\Services\PermissionService::getGrouped();
+        $role = null;
+        $p = null;
         if ($request->has('edit')) {
             $role = Role::with('permissions')->findOrFail($request->edit);
         }
         if ($request->has('editp')) {
             $p = Permission::findOrFail($request->editp);
         }
-        return view('admin.users.roles',compact('roles','permissions','role','p'));
+        return view('admin.users.roles', compact('roles', 'permissions', 'role', 'p', 'groupedPermissions'));
     }
 
     public function EnregistrerRole(Request $request)
