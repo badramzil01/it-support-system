@@ -15,7 +15,8 @@ class JiraController extends Controller
     /**
      * POST /api/jira/create
      *
-     * Crée un ticket Laravel puis tente de le pousser vers Jira.
+     * Updates an existing Laravel ticket with Jira key, or creates a new one.
+     * One Jira issue = One Laravel ticket (unique constraint on jira_ticket_id).
      *
      * Payload attendu par n8n :
      *   conversation_id  (int|required)
@@ -24,6 +25,7 @@ class JiraController extends Controller
      *   description      (string|required)
      *   priority         (string|in:low,medium,high,critical)
      *   category         (string|nullable)
+     *   jira_key         (string|nullable) — if provided, links to existing ticket
      */
     public function create(Request $request): JsonResponse
     {
@@ -36,6 +38,7 @@ class JiraController extends Controller
                 'description'     => 'required|string|max:10000',
                 'priority'        => 'nullable|string|in:low,medium,high,critical',
                 'category'        => 'nullable|string|max:255',
+                'jira_key'        => 'nullable|string|max:80',
             ], [
                 'conversation_id.required' => 'Le champ conversation_id est obligatoire.',
                 'user_id.required'         => 'Le champ user_id est obligatoire.',
@@ -52,9 +55,61 @@ class JiraController extends Controller
                 ], 422);
             }
 
-            $data = $validator->validated();
+            $data   = $validator->validated();
+            $jiraKey = $data['jira_key'] ?? null;
 
-            // ── 2. Création du ticket dans Laravel ────────────────────
+            // ── 2. If jira_key provided, find existing ticket and update it ──
+            if ($jiraKey) {
+                $existingTicket = Ticket::where('jira_ticket_id', $jiraKey)->first();
+
+                if ($existingTicket) {
+                    // Update the existing ticket with latest data from Jira
+                    $existingTicket->update([
+                        'title'           => $data['summary'],
+                        'description'     => $data['description'],
+                        'priority'        => $data['priority'] ?? $existingTicket->priority,
+                        'category'        => $data['category'] ?? $existingTicket->category,
+                    ]);
+
+                    Log::info('jira.create.updated_existing', [
+                        'ticket_id' => $existingTicket->id,
+                        'jira_key'  => $jiraKey,
+                    ]);
+
+                    return response()->json([
+                        'success'   => true,
+                        'message'   => 'Existing ticket updated with Jira data.',
+                        'ticket_id' => $existingTicket->id,
+                        'jira_key'  => $jiraKey,
+                    ], 200);
+                }
+            }
+
+            // ── 3. Check for duplicate by conversation_id + title ──────
+            $existingTicket = Ticket::where('conversation_id', $data['conversation_id'])
+                ->where('title', $data['summary'])
+                ->first();
+
+            if ($existingTicket) {
+                // Link the Jira key to the existing ticket
+                if ($jiraKey && empty($existingTicket->jira_ticket_id)) {
+                    $existingTicket->update(['jira_ticket_id' => $jiraKey]);
+                }
+
+                Log::info('jira.create.duplicate_skipped', [
+                    'existing_ticket_id' => $existingTicket->id,
+                    'summary'            => $data['summary'],
+                ]);
+
+                return response()->json([
+                    'success'   => true,
+                    'message'   => 'Ticket already exists.',
+                    'ticket_id' => $existingTicket->id,
+                    'jira_key'  => $existingTicket->jira_ticket_id ?? $jiraKey,
+                ], 200);
+            }
+
+            // ── 4. Create new Laravel ticket ───────────────────────────
             $ticket = Ticket::create([
                 'conversation_id' => $data['conversation_id'],
                 'user_id'         => $data['user_id'],
@@ -62,6 +117,7 @@ class JiraController extends Controller
                 'description'     => $data['description'],
                 'priority'        => $data['priority'] ?? 'medium',
                 'category'        => $data['category'] ?? null,
+                'jira_ticket_id'  => $jiraKey,
                 'status'          => 'open',
                 'ticket_status'   => 'open',
                 'source'          => 'n8n',
@@ -69,49 +125,13 @@ class JiraController extends Controller
 
             Log::info('jira.create.ticket', [
                 'ticket_id' => $ticket->id,
+                'jira_key'  => $jiraKey,
                 'summary'   => $data['summary'],
             ]);
 
-            // ── 3. Appel du service Jira ──────────────────────────────
-            $jiraKey = null;
-
-            try {
-                /** @var JiraService $jiraService */
-                $jiraService = app(JiraService::class);
-
-                $jiraResponse = $jiraService->createTicket(
-                    $data['summary'],
-                    $data['description']
-                );
-
-                // Extraire la clé Jira depuis la réponse
-                $jiraKey = $jiraResponse['key'] ?? null;
-
-                if ($jiraKey) {
-                    $ticket->update([
-                        'jira_ticket_id' => $jiraKey,
-                        'ticket_status'  => 'in_progress',
-                    ]);
-
-                    Log::info('jira.create.success', [
-                        'ticket_id' => $ticket->id,
-                        'jira_key'  => $jiraKey,
-                    ]);
-                }
-            } catch (\Throwable $jiraException) {
-                // L'appel Jira échoue mais le ticket Laravel est créé
-                Log::warning('jira.create.failed', [
-                    'ticket_id' => $ticket->id,
-                    'error'     => $jiraException->getMessage(),
-                ]);
-            }
-
-            // ── 4. Réponse JSON ───────────────────────────────────────
             return response()->json([
                 'success'   => true,
-                'message'   => $jiraKey
-                    ? 'Ticket Laravel et issue Jira créés avec succès.'
-                    : 'Ticket Laravel créé. Jira non disponible.',
+                'message'   => 'Ticket created.',
                 'ticket_id' => $ticket->id,
                 'jira_key'  => $jiraKey,
             ], 201);

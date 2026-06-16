@@ -468,38 +468,50 @@ class SupportController extends Controller
                     'current_category' => $category,
                 ]);
 
-                $jiraKey = $this->sendJiraWebhookAndGetKey([
-                    'laravel_ticket_id' => $ticket->id,
-                    'customer_email'    => $customerEmail,
-                    'user_message'      => $originalMessage,
-                    'message'           => $originalMessage,
-                    'message_clean'     => $detectMessage,
-                    'priority'          => $priority,
-                    'category'          => $category,
-                    'status'            => $status,
-                    'source'            => $source,
-                    'confidence'        => $confidence,
-                    'solution'          => $solution,
-                    'is_urgent'         => $isUrgent,
-                    'is_escalated'      => $isEscalated,
-                    'create_ticket'     => $createTicket,
-                    'has_image'         => $hasImage,
-                    'conversation_id'   => $conversation->id,
-                    'user_id'           => $userId,
-                    'language'          => $language,
-                    'title'             => $ticketTitle,
-                    'description'       => $ticketDescription,
-                ], $traceId);
+                // Only send to Jira if the ticket doesn't already have a jira_key
+                if (empty($ticket->jira_ticket_id)) {
+                    $jiraKey = $this->sendJiraWebhookAndGetKey([
+                        'laravel_ticket_id' => $ticket->id,
+                        'customer_email'    => $customerEmail,
+                        'user_message'      => $originalMessage,
+                        'message'           => $originalMessage,
+                        'message_clean'     => $detectMessage,
+                        'priority'          => $priority,
+                        'category'          => $category,
+                        'status'            => $status,
+                        'source'            => $source,
+                        'confidence'        => $confidence,
+                        'solution'          => $solution,
+                        'is_urgent'         => $isUrgent,
+                        'is_escalated'      => $isEscalated,
+                        'create_ticket'     => $createTicket,
+                        'has_image'         => $hasImage,
+                        'conversation_id'   => $conversation->id,
+                        'user_id'           => $userId,
+                        'language'          => $language,
+                        'title'             => $ticketTitle,
+                        'description'       => $ticketDescription,
+                    ], $traceId);
 
-                if ($jiraKey) {
-                    $ticket->update(['jira_ticket_id' => $jiraKey]);
-                    $ticketId = $jiraKey;
-                    $conversation->update(['current_ticket_id' => $jiraKey]);
+                    if ($jiraKey) {
+                        $ticket->update(['jira_ticket_id' => $jiraKey]);
+                        $ticketId = $jiraKey;
+                        $conversation->update(['current_ticket_id' => $jiraKey]);
 
-                    Log::info('support.jira.key.saved', [
+                        Log::info('support.jira.key.saved', [
+                            'trace_id'       => $traceId,
+                            'ticket_id'      => $ticket->id,
+                            'jira_ticket_id' => $jiraKey,
+                        ]);
+                    }
+                } else {
+                    $ticketId = $ticket->jira_ticket_id;
+                    $conversation->update(['current_ticket_id' => $ticket->jira_ticket_id]);
+
+                    Log::info('support.jira.key.already_exists', [
                         'trace_id'       => $traceId,
                         'ticket_id'      => $ticket->id,
-                        'jira_ticket_id' => $jiraKey,
+                        'jira_ticket_id' => $ticket->jira_ticket_id,
                     ]);
                 }
             } else {
@@ -577,6 +589,20 @@ class SupportController extends Controller
                     'ticket_id'      => $ticket->id,
                     'jira_ticket_id' => $ticket->jira_ticket_id,
                 ]);
+            }
+
+            // Check if another ticket already has this jira_key (unique constraint)
+            $existingWithKey = Ticket::where('jira_ticket_id', $jiraKey)
+                ->where('id', '!=', $ticket->id)
+                ->first();
+
+            if ($existingWithKey) {
+                return response()->json([
+                    'success'        => false,
+                    'message'        => 'This Jira key is already linked to ticket #' . $existingWithKey->id,
+                    'ticket_id'      => $existingWithKey->id,
+                    'jira_ticket_id' => $jiraKey,
+                ], 409);
             }
 
             $ticket->update(['jira_ticket_id' => $jiraKey]);
@@ -935,6 +961,29 @@ class SupportController extends Controller
             $priority = $this->normalizePriority($request->input('priority', 'medium'));
             $category = $request->input('category', 'general');
             $userId   = $request->input('user_id', auth()->id() ?? 1);
+            $title    = $this->buildTicketTitle($request->message, '', $category, false);
+
+            // Check for duplicate ticket with same title and user
+            $existingTicket = Ticket::where('user_id', $userId)
+                ->where('title', $title)
+                ->first();
+
+            if ($existingTicket) {
+                Log::info('support.createTicket.duplicate_skipped', [
+                    'existing_ticket_id' => $existingTicket->id,
+                    'title'              => $title,
+                ]);
+
+                return response()->json([
+                    'success'        => true,
+                    'message'        => 'Ticket already exists.',
+                    'ticket_id'      => $existingTicket->id,
+                    'jira_ticket_id' => $existingTicket->jira_ticket_id,
+                    'status'         => $existingTicket->status,
+                    'priority'       => $existingTicket->priority,
+                    'category'       => $existingTicket->category,
+                ]);
+            }
 
             Log::info('BEFORE TICKET CREATE', [
                 'conversation_id' => null,
@@ -943,7 +992,7 @@ class SupportController extends Controller
                 'is_urgent' => false,
                 'priority' => $priority,
                 'category' => $category,
-                'title' => $this->buildTicketTitle($request->message, '', $category, false),
+                'title' => $title,
                 'description' => $request->message,
             ]);
 
@@ -951,7 +1000,7 @@ class SupportController extends Controller
                 'user_id'         => $userId,
                 'conversation_id' => null,
                 'message_id'      => null,
-                'title'           => $this->buildTicketTitle($request->message, '', $category, false),
+                'title'           => $title,
                 'description'     => $request->message,
                 'solution'        => null,
                 'source'          => 'manual',

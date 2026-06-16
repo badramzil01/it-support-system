@@ -11,7 +11,10 @@ class TicketController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Ticket::query();
+        // Only show tickets synchronized with Jira
+        $query = Ticket::with(['user', 'assignedAgent'])
+            ->whereNotNull('jira_ticket_id')
+            ->where('jira_ticket_id', '!=', '');
 
         if ($request->filled('search')) {
             $s = $request->input('search');
@@ -63,8 +66,6 @@ class TicketController extends Controller
         $categories = Ticket::select('category')->distinct()->pluck('category')->filter()->values();
 
         return view('support.tickets.index', compact('tickets','statuses','priorities','categories','sort','direction'));
-
-        return view('support.tickets.index', compact('tickets'));
     }
 
     public function show(Ticket $ticket)
@@ -75,31 +76,32 @@ class TicketController extends Controller
     public function updateStatus(Request $request, Ticket $ticket)
     {
         $request->validate(['status' => 'required|string']);
-        $ticket->update(['status' => $request->input('status')]);
-        // If ticket is linked to Jira, attempt to sync status
-        try {
-            if (!empty($ticket->jira_ticket_id)) {
-                $jira = app(JiraService::class);
-                $newStatus = $request->input('status');
-                $ok = true;
+        $newStatus = $request->input('status');
 
-                if ($newStatus === 'open') {
-                    $ok = $jira->moveToTodo($ticket->jira_ticket_id);
-                } elseif ($newStatus === 'in_progress') {
-                    $ok = $jira->moveToInProgress($ticket->jira_ticket_id);
-                } elseif (in_array($newStatus, ['resolved','closed'], true)) {
-                    $ok = $jira->moveToDone($ticket->jira_ticket_id);
-                }
+        // Update Jira first — if it fails, do NOT update Laravel
+        if (!empty($ticket->jira_ticket_id)) {
+            try {
+                $jira = app(JiraService::class);
+                $ok = true;
+                if ($newStatus === 'open') $ok = $jira->moveToTodo($ticket->jira_ticket_id);
+                elseif ($newStatus === 'in_progress') $ok = $jira->moveToInProgress($ticket->jira_ticket_id);
+                elseif (in_array($newStatus, ['resolved','closed'], true)) $ok = $jira->moveToDone($ticket->jira_ticket_id);
 
                 if (!$ok) {
                     \Log::warning('jira.update.failed', ['ticket_id' => $ticket->id, 'jira' => $ticket->jira_ticket_id, 'status' => $newStatus]);
-                    return back()->with('warning', 'Status updated locally but failed to update Jira.');
+                    return back()->with('error', 'Jira update failed. Status not changed.');
                 }
+            } catch (\Throwable $e) {
+                \Log::error('jira.update.error', ['error' => $e->getMessage(), 'ticket_id' => $ticket->id]);
+                return back()->with('error', 'Jira update failed. Status not changed.');
             }
-        } catch (\Throwable $e) {
-            \Log::error('jira.update.error', ['error' => $e->getMessage(), 'ticket_id' => $ticket->id]);
-            return back()->with('warning', 'Status updated locally but Jira update failed.');
         }
+
+        // Jira updated (or no Jira key) — now update Laravel
+        $updateData = ['status' => $newStatus];
+        if ($newStatus === 'resolved') $updateData['resolved_at'] = now();
+        if ($newStatus === 'closed') $updateData['closed_at'] = now();
+        $ticket->update($updateData);
 
         return back()->with('success', 'Status updated');
     }

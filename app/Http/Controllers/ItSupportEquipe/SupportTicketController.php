@@ -16,10 +16,13 @@ class SupportTicketController extends Controller
      */
     public function index(Request $request)
     {
+        // Only show tickets synchronized with Jira
         $query = Ticket::with([
             'user',
             'assignedAgent'
-        ]);
+        ])
+            ->whereNotNull('jira_ticket_id')
+            ->where('jira_ticket_id', '!=', '');
 
         if ($request->filled('search')) {
 
@@ -118,24 +121,9 @@ class SupportTicketController extends Controller
             'new_status'     => $newStatus,
         ]);
 
-        $data = [
-            'status' => $newStatus
-        ];
-
-        if ($newStatus === 'resolved') {
-            $data['resolved_at'] = Carbon::now();
-        }
-
-        if ($newStatus === 'closed') {
-            $data['closed_at'] = Carbon::now();
-        }
-
-        $ticket->update($data);
-
-        try {
-
-            if (!empty($ticket->jira_ticket_id)) {
-
+        // Update Jira first — if it fails, do NOT update Laravel
+        if (!empty($ticket->jira_ticket_id)) {
+            try {
                 Log::info('jira.sync.start', [
                     'ticket_id' => $ticket->id,
                     'jira_key'  => $ticket->jira_ticket_id,
@@ -145,37 +133,15 @@ class SupportTicketController extends Controller
                 $jiraSuccess = false;
 
                 switch ($newStatus) {
-
                     case 'open':
-
-                        $jiraSuccess = $jiraService->moveToTodo(
-                            $ticket->jira_ticket_id
-                        );
-
+                        $jiraSuccess = $jiraService->moveToTodo($ticket->jira_ticket_id);
                         break;
-
                     case 'in_progress':
-
-                        $jiraSuccess = $jiraService->moveToInProgress(
-                            $ticket->jira_ticket_id
-                        );
-
+                        $jiraSuccess = $jiraService->moveToInProgress($ticket->jira_ticket_id);
                         break;
-
                     case 'resolved':
-
-                        $jiraSuccess = $jiraService->moveToDone(
-                            $ticket->jira_ticket_id
-                        );
-
-                        break;
-
                     case 'closed':
-
-                        $jiraSuccess = $jiraService->moveToDone(
-                            $ticket->jira_ticket_id
-                        );
-
+                        $jiraSuccess = $jiraService->moveToDone($ticket->jira_ticket_id);
                         break;
                 }
 
@@ -184,29 +150,29 @@ class SupportTicketController extends Controller
                     'jira_key'  => $ticket->jira_ticket_id,
                     'success'   => $jiraSuccess,
                 ]);
-            } else {
 
-                Log::warning('jira.sync.skipped', [
-                    'ticket_id' => $ticket->id,
-                    'reason'    => 'jira_ticket_id vide'
+                if (!$jiraSuccess) {
+                    return back()->with('error', 'Jira update failed. Status not changed.');
+                }
+            } catch (\Exception $e) {
+                Log::error('jira.sync.error', [
+                    'ticket_id'      => $ticket->id,
+                    'jira_ticket_id' => $ticket->jira_ticket_id,
+                    'message'        => $e->getMessage(),
+                    'line'           => $e->getLine(),
+                    'file'           => $e->getFile(),
                 ]);
+                return back()->with('error', 'Jira update failed. Status not changed.');
             }
-
-        } catch (\Exception $e) {
-
-            Log::error('jira.sync.error', [
-                'ticket_id'      => $ticket->id,
-                'jira_ticket_id' => $ticket->jira_ticket_id,
-                'message'        => $e->getMessage(),
-                'line'           => $e->getLine(),
-                'file'           => $e->getFile(),
-            ]);
         }
 
-        return back()->with(
-            'success',
-            'Statut mis à jour dans Laravel et Jira.'
-        );
+        // Jira updated (or no Jira key) — now update Laravel
+        $data = ['status' => $newStatus];
+        if ($newStatus === 'resolved') $data['resolved_at'] = Carbon::now();
+        if ($newStatus === 'closed') $data['closed_at'] = Carbon::now();
+        $ticket->update($data);
+
+        return back()->with('success', 'Statut mis à jour.');
     }
 
     /**

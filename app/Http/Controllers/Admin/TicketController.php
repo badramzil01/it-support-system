@@ -12,7 +12,10 @@ class TicketController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Ticket::with(['user','assignedAgent']);
+        // Only show tickets synchronized with Jira
+        $query = Ticket::with(['user','assignedAgent'])
+            ->whereNotNull('jira_ticket_id')
+            ->where('jira_ticket_id', '!=', '');
 
         if ($request->filled('search')) {
             $s = $request->input('search');
@@ -58,20 +61,32 @@ class TicketController extends Controller
     public function updateStatus(Request $request, Ticket $ticket)
     {
         $request->validate(['status' => 'required|string']);
-        $ticket->update(['status' => $request->input('status')]);
-        try {
-            if (!empty($ticket->jira_ticket_id)) {
+        $newStatus = $request->input('status');
+
+        // Update Jira first — if it fails, do NOT update Laravel
+        if (!empty($ticket->jira_ticket_id)) {
+            try {
                 $jira = app(JiraService::class);
-                $newStatus = $request->input('status');
                 $ok = true;
                 if ($newStatus === 'open') $ok = $jira->moveToTodo($ticket->jira_ticket_id);
                 elseif ($newStatus === 'in_progress') $ok = $jira->moveToInProgress($ticket->jira_ticket_id);
                 elseif (in_array($newStatus, ['resolved','closed'], true)) $ok = $jira->moveToDone($ticket->jira_ticket_id);
-                if (!$ok) return back()->with('warning', 'Status updated locally but failed to update Jira.');
+
+                if (!$ok) {
+                    return back()->with('error', 'Jira update failed. Status not changed.');
+                }
+            } catch (\Throwable $e) {
+                \Log::error('jira.update.error', ['error' => $e->getMessage(), 'ticket_id' => $ticket->id]);
+                return back()->with('error', 'Jira update failed. Status not changed.');
             }
-        } catch (\Throwable $e) {
-            return back()->with('warning', 'Status updated locally but Jira update failed.');
         }
+
+        // Jira updated (or no Jira key) — now update Laravel
+        $updateData = ['status' => $newStatus];
+        if ($newStatus === 'resolved') $updateData['resolved_at'] = now();
+        if ($newStatus === 'closed') $updateData['closed_at'] = now();
+        $ticket->update($updateData);
+
         return back()->with('success', 'Status updated');
     }
 
