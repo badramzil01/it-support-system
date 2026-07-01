@@ -66,7 +66,7 @@
                 Notifications
             </a>
 
-            <a href="{{ route('support.settings.index') }}"
+            <a href="{{ route('support.ui.settings.index') }}"
                class="block px-4 py-3 rounded-lg hover:bg-slate-800">
                 Paramètres
             </a>

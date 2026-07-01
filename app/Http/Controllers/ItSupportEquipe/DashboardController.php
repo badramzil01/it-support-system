@@ -5,12 +5,17 @@ namespace App\Http\Controllers\ItSupportEquipe;
 use App\Http\Controllers\Controller;
 use App\Models\Ticket;
 use App\Models\Conversation;
+use App\Models\User;
+use App\Models\SupportTeam;
 use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
     public function index()
     {
+        $user = auth()->user();
+        $userLevel = $this->getUserSupportLevel($user);
+
         $stats = [
             'totalTickets' => Ticket::count(),
 
@@ -36,9 +41,17 @@ class DashboardController extends Controller
             'support.dashboard',
             compact(
                 'stats',
-                'recentTickets'
+                'recentTickets',
+                'userLevel'
             )
         );
+    }
+
+    private function getUserSupportLevel($user): ?string
+    {
+        if ($user->hasRole('admin')) return null;
+        $team = SupportTeam::whereHas('members', fn($q) => $q->where('user_id', $user->id))->first();
+        return $team?->support_level;
     }
 
     public function listeTickets()

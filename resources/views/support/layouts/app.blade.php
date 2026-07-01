@@ -211,14 +211,14 @@
                     <span>Communication Interne</span>
                     <span id="sidebarInternalMessagesBadge" class="ml-auto inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-500 text-white" style="display: none;"></span>
                 </a>
-                <a href="{{ route('support.ui.tickets.index', ['is_escalated' => 1]) }}"
-                   class="nav-item flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition">
+                {{-- DISABLED: Escalated Tickets merged into single Tickets page
+                <a href="{{ route('support.ui.escalations.index') }}"
+                   class="nav-item {{ request()->routeIs('support.ui.escalations*') ? 'active' : '' }} flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition">
                     <svg class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.19-1.458-1.515-2.625L8.485 2.495ZM10 5.25a.75.75 0 0 1 .75.75v4a.75.75 0 0 1-1.5 0V6a.75.75 0 0 1 .75-.75Zm0 8.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/>
-                    </svg>
-                    <span>Escalades</span>
-                    <span class="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-red-500/20 text-[10px] font-bold text-red-400">3</span>
+                        <path fill-rule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clip-rule="evenodd"/></svg>
+                    <span>Escalated Tickets</span>
                 </a>
+                --}}
             </div>
 
             <div>

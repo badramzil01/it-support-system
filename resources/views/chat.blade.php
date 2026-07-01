@@ -259,58 +259,101 @@
         .dd-item.danger:hover { background: #fee2e2; }
         .dd-sep { height: 1px; background: var(--border); margin: 4px 0; }
         .main { flex: 1; display: flex; flex-direction: column; min-width: 0; height: 100vh; }
+        /* ── TOPBAR – glassmorphism minimal ── */
         .topbar {
-            height: 58px;
-            border-bottom: 1px solid var(--border);
-            background: rgba(255,255,255,.94);
-            backdrop-filter: blur(12px);
+            height: 50px;
+            border: none;
+            background: transparent;
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            padding: 0 22px;
+            justify-content: flex-end;
+            padding: 0 14px;
             flex-shrink: 0;
+            position: relative;
+            z-index: 50;
         }
-        .topbar-left { display: flex; align-items: center; gap: 11px; }
-        .topbar-icon {
-            width: 32px;
-            height: 32px;
-            border-radius: 9px;
-            background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+        .topbar-left { display: none; }
+        .topbar-right { display: flex; align-items: center; gap: 6px; position: relative; }
+
+        /* hamburger menu button */
+        .menu-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: rgba(255,255,255,.72);
+            backdrop-filter: blur(14px);
+            border: 1px solid rgba(0,0,0,.06);
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            font-size: 15px;
-        }
-        .topbar-title { font-family: 'Sora', sans-serif; font-size: 14.5px; font-weight: 700; color: var(--blue); }
-        .topbar-status { display: flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--text-4); }
-        .topbar-right { display: flex; align-items: center; gap: 7px; }
-        .tb-btn {
-            width: 34px;
-            height: 34px;
-            border-radius: 8px;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            gap: 3.5px;
             cursor: pointer;
-            color: var(--text-3);
-            font-size: 15px;
-            transition: background .15s, color .15s;
+            transition: all .2s ease;
+            color: var(--text-2);
+            padding: 8px;
         }
-        .tb-btn:hover { background: var(--blue-light); color: var(--blue); }
-        .model-pill {
+        .dark .menu-btn { background: rgba(30,41,59,.7); border-color: rgba(255,255,255,.06); }
+        .menu-btn:hover { background: rgba(255,255,255,.92); transform: scale(1.04); box-shadow: 0 2px 12px rgba(0,0,0,.07); }
+        .dark .menu-btn:hover { background: rgba(30,41,59,.9); }
+        .menu-bar { width: 17px; height: 2px; border-radius: 2px; background: currentColor; transition: all .22s ease; }
+        .menu-btn.open .menu-bar:nth-child(1) { transform: translateY(5.5px) rotate(45deg); }
+        .menu-btn.open .menu-bar:nth-child(2) { opacity: 0; }
+        .menu-btn.open .menu-bar:nth-child(3) { transform: translateY(-5.5px) rotate(-45deg); }
+
+        /* dropdown panel */
+        .chat-dropdown {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 6px;
+            min-width: 210px;
+            background: rgba(255,255,255,.94);
+            backdrop-filter: blur(22px);
+            border: 1px solid rgba(0,0,0,.06);
+            border-radius: 16px;
+            box-shadow: 0 16px 48px rgba(0,0,0,.1), 0 0 0 1px rgba(0,0,0,.02);
+            padding: 6px;
+            z-index: 999;
+            display: none;
+            animation: ddIn .15s ease;
+        }
+        .dark .chat-dropdown { background: rgba(30,41,59,.94); border-color: rgba(255,255,255,.08); }
+        .chat-dropdown.show { display: block; }
+        @keyframes ddIn {
+            from { opacity: 0; transform: translateY(-6px) scale(.96); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .dd-row {
             display: flex;
             align-items: center;
-            gap: 5px;
-            padding: 4.5px 10px;
-            border-radius: 99px;
-            background: var(--blue-light);
-            border: 1px solid rgba(59,130,246,.18);
-            font-size: 11.5px;
-            font-weight: 700;
-            color: var(--blue);
+            gap: 10px;
+            padding: 9px 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 13.5px;
+            font-weight: 600;
+            color: var(--text-2);
+            transition: background .14s, color .14s;
+            text-decoration: none;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+            font-family: 'DM Sans', sans-serif;
         }
+        .dd-row:hover { background: var(--bg); color: var(--blue); }
+        .dd-row.danger { color: var(--red); }
+        .dd-row.danger:hover { background: #fee2e2; }
+        .dd-icon { font-size: 16px; width: 22px; text-align: center; flex-shrink: 0; opacity: .75; }
+        .dd-sep { height: 1px; background: var(--border); margin: 4px 8px; }
+
+        /* old helpers – keep for backward compat */
+        .tb-btn { display: none; }
+        .model-pill { display: none; }
+        .net-pill { display: none; }
+        .topbar-icon { display: none; }
+        .topbar-title { display: none; }
+        .topbar-status { display: none; }
         .flags-bar {
             display: flex;
             align-items: center;
@@ -421,7 +464,7 @@
         .msg-row.user .msg-bubble {
             background: var(--blue);
             color: white;
-            border-top-right-radius: 4px;
+            border-top-right-radius: var(--r-md);
             box-shadow: 0 3px 12px rgba(29,78,216,.2);
             white-space: pre-wrap;
         }
@@ -718,6 +761,39 @@
         .mf-priority.medium { background: #ffedd5; color: #c2410c; }
         .mf-priority.high,
         .mf-priority.critical { background: #fee2e2; color: #dc2626; }
+        .msg-dd-wrap { position: relative; display: inline-block; }
+        .msg-dropdown {
+            position: absolute;
+            bottom: calc(100% + 4px);
+            right: 0;
+            min-width: 150px;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: var(--r-md);
+            box-shadow: 0 8px 28px rgba(0,0,0,.1);
+            padding: 4px;
+            z-index: 999;
+            display: none;
+            animation: fadeUp .1s ease;
+        }
+        .dark .msg-dropdown { background: var(--sidebar-bg); border-color: #2d3748; }
+        .msg-dropdown.show { display: block; }
+        .msg-dd-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text-2);
+            transition: background .12s;
+            white-space: nowrap;
+        }
+        .msg-dd-item:hover { background: var(--bg); }
+        .msg-dd-item.danger { color: var(--red); }
+        .msg-dd-item.danger:hover { background: #fee2e2; }
+        .edit-badge { font-size: 10px; color: var(--text-4); font-style: italic; margin-left: 4px; }
         .mf-reason { background: #f8fafc; color: #64748b; }
         .toast-stack {
             position: fixed;
@@ -824,10 +900,15 @@
 
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-brand">
-            <div class="brand-icon">🤖</div>
+            <div class="brand-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 18v-6a9 9 0 0 1 18 0v6"/>
+                    <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0-2-2v-3a2 2 0 0 0-2-2H3z"/>
+                </svg>
+            </div>
             <div>
-                <div class="brand-name">AI IT Support</div>
-                <div class="brand-sub"><span class="dot-online"></span> Assistant actif</div>
+                <div class="brand-name">Support IT</div>
+                <div class="brand-sub"><span class="dot-online"></span> En ligne</div>
             </div>
         </div>
 
@@ -861,25 +942,28 @@
 
     <main class="main">
         <div class="topbar">
-            <div class="topbar-left">
-                <button class="hamburger" id="hamburger">☰</button>
-                <div class="topbar-icon">🤖</div>
-                <div>
-                    <div class="topbar-title">AI IT Support Assistant</div>
-                    <div class="topbar-status"><span class="dot-online" style="width:5px;height:5px;margin:0;"></span> Vision AI · Analyse intelligente</div>
-                </div>
-            </div>
+            <div class="topbar-left"></div>
             <div class="topbar-right">
-                <div class="net-pill" id="netPill">● Online</div>
-                
-                <button class="tb-btn" id="exportBtn" title="Exporter conversation">⇩</button>
-                <button class="tb-btn" id="clearBtn" title="Vider conversation">⌫</button>
-                <button class="tb-btn" id="darkToggle" title="Mode sombre">☾</button>
-                <button class="tb-btn" title="Paramètres" onclick="alert('Settings à configurer')">⚙</button>
+                <button class="menu-btn" id="menuBtn" title="Menu">
+                    <span class="menu-bar"></span>
+                    <span class="menu-bar"></span>
+                    <span class="menu-bar"></span>
+                </button>
+                <div class="chat-dropdown" id="chatDropdown">
+                    <button class="dd-row" id="ddExport"><span class="dd-icon">📥</span> Exporter conversation</button>
+                    <button class="dd-row" id="ddClear"><span class="dd-icon">🗑️</span> Vider conversation</button>
+                    <button class="dd-row" id="ddDark"><span class="dd-icon">🌙</span> Mode sombre</button>
+                    <button class="dd-row" id="ddSettings"><span class="dd-icon">⚙️</span> Paramètres</button>
+                    <div class="dd-sep"></div>
+                    <form method="POST" action="{{ route('logout') }}" id="ddLogoutForm">
+                        @csrf
+                        <button type="submit" class="dd-row danger"><span class="dd-icon">🚪</span> Déconnexion</button>
+                    </form>
+                </div>
             </div>
         </div>
 
-        <div class="flags-bar" id="flagsBar">
+        <div class="flags-bar" id="flagsBar" style="display:none;">
             <span class="flags-empty">Aucun flag actif — utilisez les boutons ci-dessous</span>
         </div>
 
@@ -893,14 +977,14 @@
                         Activez les flags 🚨 Urgent · ⬆️ Escalade · 🎫 Ticket si nécessaire.
                     </p>
                     <div class="chips-grid">
-                        <div class="chip" onclick="setQ('Mon wifi ne fonctionne pas')">📶 WiFi</div>
-                        <div class="chip" onclick="setQ(&quot;Mon PC est très lent, comment l'optimiser ?&quot;)">🐢 PC Lent</div>
-                        <div class="chip" onclick="setQ(&quot;Erreur imprimante impossible d'imprimer&quot;)">🖨️ Imprimante</div>
-                        <div class="chip" onclick="setQ('Impossible de me connecter à mon compte')">🔐 Connexion</div>
-                        <div class="chip" onclick="setQ('Problème avec Microsoft 365 Outlook')">📧 Microsoft 365</div>
-                        <div class="chip" onclick="setQ(&quot;Mon écran ne s'allume pas&quot;)">🖥️ Écran noir</div>
-                        <div class="chip" onclick="setQ('Problème réseau VPN')">🔒 VPN</div>
-                        <div class="chip" onclick="setQ('Mise à jour Windows échouée')">⚙️ Windows Update</div>
+                        <div class="chip" onclick="console.log('Chip WiFi clicked'); setQ('Mon wifi ne fonctionne pas')">📶 WiFi</div>
+                        <div class="chip" onclick="console.log('Chip PC Lent clicked'); setQ('Mon PC est très lent, comment l\'optimiser ?')">🐢 PC Lent</div>
+                        <div class="chip" onclick="console.log('Chip Imprimante clicked'); setQ('Erreur imprimante impossible d\'imprimer')">🖨️ Imprimante</div>
+                        <div class="chip" onclick="console.log('Chip Connexion clicked'); setQ('Impossible de me connecter à mon compte')">🔐 Connexion</div>
+                        <div class="chip" onclick="console.log('Chip Office clicked'); setQ('Problème avec Microsoft 365 Outlook')">📧 Microsoft 365</div>
+                        <div class="chip" onclick="console.log('Chip Ecran clicked'); setQ('Mon écran ne s\'allume pas')">🖥️ Écran noir</div>
+                        <div class="chip" onclick="console.log('Chip VPN clicked'); setQ('Problème réseau VPN')">🔒 VPN</div>
+                        <div class="chip" onclick="console.log('Chip Windows clicked'); setQ('Mise à jour Windows échouée')">⚙️ Windows Update</div>
                     </div>
                 </div>
             </div>
@@ -991,18 +1075,67 @@ const sidebar = document.getElementById('sidebar');
 const overlay = document.getElementById('overlay');
 const flagsBar = document.getElementById('flagsBar');
 const toastStack = document.getElementById('toastStack');
-const darkToggle = document.getElementById('darkToggle');
-const exportBtn = document.getElementById('exportBtn');
-const clearBtn = document.getElementById('clearBtn');
-const netPill = document.getElementById('netPill');
 const dropHint = document.getElementById('dropHint');
 const inputBox = document.querySelector('.input-box');
 let lastRetryPayload = null;
 
-function load() {
+async function load() {
     try { conversations = JSON.parse(localStorage.getItem(STORE) || '{}'); } catch { conversations = {}; }
     cleanupOldConversations();
     activeId = localStorage.getItem(ACTIVE_KEY) || null;
+    
+    // Fetch conversations from backend on page load
+    await fetchConversationsFromBackend();
+}
+async function fetchConversationsFromBackend() {
+    try {
+        const res = await fetch(`/api/conversations/${USER_ID}`, {
+            headers: { 'Accept': 'application/json' }
+        });
+        
+        if (!res.ok) return;
+        
+        const data = await res.json();
+        
+        if (!data.success || !Array.isArray(data.conversations)) return;
+        
+        // Merge backend conversations into local state
+        data.conversations.forEach(conv => {
+            const convId = String(conv.id);
+            // Only add if not already in local storage (to preserve unsynced local data)
+            if (!conversations[convId]) {
+                conversations[convId] = {
+                    id: convId,
+                    backendId: conv.id,
+                    title: conv.title || 'Conversation #' + conv.id,
+                    messages: [],
+                    createdAt: Date.now(),
+                    updatedAt: new Date(conv.updated_at).getTime(),
+                    hasUrgent: false,
+                    hasEscalated: false,
+                    hasTicket: conv.ticket_created || false,
+                    category: conv.category || null,
+                    priority: null,
+                    status: null,
+                    ticketId: conv.current_ticket_id || null
+                };
+            } else {
+                // Update existing conversation with latest backend data
+                conversations[convId].backendId = conv.id;
+                conversations[convId].title = conv.title || conversations[convId].title;
+                conversations[convId].updatedAt = new Date(conv.updated_at).getTime();
+                conversations[convId].hasTicket = conv.ticket_created || false;
+                conversations[convId].ticketId = conv.current_ticket_id || null;
+                if (conv.category) conversations[convId].category = conv.category;
+            }
+        });
+        
+        save();
+        
+        console.log('Conversations chargées depuis le backend:', data.conversations.length);
+    } catch (err) {
+        console.warn('fetchConversationsFromBackend failed', err);
+    }
 }
 function save() {
     localStorage.setItem(STORE, JSON.stringify(conversations));
@@ -1023,8 +1156,8 @@ function fmtDate(ts) {
     if (d.toDateString() === y.toDateString()) return 'Hier';
     return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
 }
-function scrollBot(smooth = true) { msgsWrap.scrollTo({ top: msgsWrap.scrollHeight, behavior: smooth ? 'smooth' : 'auto' }); }
-function esc(str) { return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function scrollBot(_smooth = true) { /* auto-scroll disabled */ }
+function esc(str) { return String(str).replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>'); }
 function normBool(value) {
     return value === true || value === 1 || value === '1' || value === 'true' || value === 'yes';
 }
@@ -1126,8 +1259,37 @@ function normalizeBackendMessage(message) {
         ts: message.created_at ? new Date(message.created_at).getTime() : Date.now(),
         status: message.status || null,
         conversationId: message.conversation_id || null,
-        source: message.source || null
+        source: message.source || null,
+        isEdited: message.is_edited === true || message.is_edited === 1
     };
+}
+
+async function loadMessagesFromBackend(convId) {
+    if (!convId || !conversations[convId]?.backendId) return;
+
+    const c = conversations[convId];
+
+    try {
+        const res = await fetch(`/api/messages/${c.backendId}`, {
+            headers: { 'Accept': 'application/json' }
+        });
+
+        if (!res.ok) return;
+
+        const data = await res.json();
+
+        if (!data.success || !Array.isArray(data.messages)) return;
+
+        c.messages = data.messages.map(normalizeBackendMessage);
+        c.updatedAt = Date.now();
+        save();
+
+        if (activeId && conversations[activeId]?.backendId === c.backendId) {
+            renderMessages(c.messages);
+        }
+    } catch (err) {
+        console.warn('loadMessagesFromBackend failed', err);
+    }
 }
 
 async function syncBackendMessages(showNotice = false) {
@@ -1176,7 +1338,7 @@ function enhanceCodeBlocks(scope = msgsInner) {
             code.dataset.hlDone = '1';
         }
         const pre = code.closest('pre');
-        if (!pre || pre.parentElement.classList.contains('code-wrap')) return;
+        if (!pre || !pre.parentElement) return;
         const wrap = document.createElement('div');
         wrap.className = 'code-wrap';
         const btn = document.createElement('button');
@@ -1208,7 +1370,9 @@ function setSending(on) {
 
 function toggleFlag(type) {
     flags[type] = !flags[type];
-    document.getElementById('btn' + type.charAt(0).toUpperCase() + type.slice(1)).classList.toggle('active', flags[type]);
+    const btnId = 'btn' + type.charAt(0).toUpperCase() + type.slice(1);
+    const btn = document.getElementById(btnId);
+    if (btn) btn.classList.toggle('active', flags[type]);
     syncHiddenFlags();
     renderFlagsBar();
 }
@@ -1314,11 +1478,31 @@ function appendMsg(msg, animated = true) {
     if (msg.category && msg.category !== 'general') flagHtml += `<span class="mf mf-cat">📁 ${esc(msg.category)}</span>`;
     if (msg.reason && msg.showReason) flagHtml += `<span class="mf mf-reason">ⓘ ${esc(msg.reason)}</span>`;
     const flagsDiv = flagHtml ? `<div class="msg-flags">${flagHtml}</div>` : '';
-    const actions = msg.error
-        ? `<div class="msg-actions"><button class="mini-btn" type="button" onclick="retryLastMessage()">Réessayer</button></div>`
-        : '';
 
-    row.innerHTML = `${av}<div>${flagsDiv}<div class="msg-bubble">${content}</div>${actions}</div>`;
+    // Edit badge
+    const editBadge = msg.isEdited ? '<span class="edit-badge">(modifié)</span>' : '';
+
+    // Actions: only for user messages — ⋮ dropdown instead of visible buttons
+    let msgActionsHtml = '';
+    if (msg.role === 'user') {
+        msgActionsHtml = `<div class="msg-actions">
+            <div class="msg-dd-wrap">
+                <button class="mini-btn msg-dd-btn" onclick="toggleMsgMenu(event, '${msg.id}')" title="Plus d'actions">⋮</button>
+                <div class="msg-dropdown" id="msgMenu_${msg.id}">
+                    <div class="msg-dd-item" onclick="editMessage('${msg.id}')">✏️ Modifier</div>
+                    <div class="msg-dd-item danger" onclick="deleteMessage('${msg.id}')">🗑️ Supprimer</div>
+                </div>
+            </div>
+        </div>`;
+    } else if (msg.error) {
+        msgActionsHtml = `<div class="msg-actions"><button class="mini-btn" type="button" onclick="retryLastMessage()">Réessayer</button></div>`;
+    }
+
+    row.innerHTML = `${av}<div>${flagsDiv}<div class="msg-bubble">${content}${editBadge}</div>${msgActionsHtml}</div>`;
+
+    // Store msg id in dataset for edit/delete
+    if (msg.id) row.dataset.msgId = msg.id;
+
     msgsInner.appendChild(row);
 
     const meta = document.createElement('div');
@@ -1329,6 +1513,149 @@ function appendMsg(msg, animated = true) {
 
     if (animated) scrollBot();
     if (msg.role === 'bot' || msg.role === 'support') enhanceCodeBlocks(row);
+}
+
+// ── TOGGLE MESSAGE 3-DOT MENU ──
+function toggleMsgMenu(event, msgId) {
+    event.stopPropagation();
+    // Close all other msg dropdowns
+    document.querySelectorAll('.msg-dropdown.show').forEach(dd => {
+        if (dd.id !== 'msgMenu_' + msgId) dd.classList.remove('show');
+    });
+    const dd = document.getElementById('msgMenu_' + msgId);
+    if (dd) {
+        dd.classList.toggle('show');
+    }
+}
+// Close msg dropdowns on doc click
+document.addEventListener('click', () => {
+    document.querySelectorAll('.msg-dropdown.show').forEach(dd => dd.classList.remove('show'));
+}, false);
+
+// ── EDIT MESSAGE ──
+function editMessage(msgId) {
+    if (!msgId) return;
+    const row = document.querySelector(`[data-msg-id="${msgId}"]`);
+    if (!row) return;
+
+    const bubble = row.querySelector('.msg-bubble');
+    if (!bubble) return;
+
+    // Get current text (without the edit badge)
+    let currentText = bubble.textContent.replace('(modifié)', '').trim();
+
+    // Replace bubble with textarea
+    const textarea = document.createElement('textarea');
+    textarea.className = 'edit-textarea';
+    textarea.value = currentText;
+    textarea.style.cssText = 'width:100%;padding:8px;border-radius:8px;border:1.5px solid var(--blue-mid);font-family:DM Sans,sans-serif;font-size:14px;resize:vertical;min-height:60px;outline:none;';
+
+    const btnGroup = document.createElement('div');
+    btnGroup.style.cssText = 'display:flex;gap:6px;margin-top:6px;';
+    btnGroup.innerHTML = `
+        <button class="mini-btn" onclick="saveEdit('${msgId}', this)" style="background:var(--blue);color:white;border-color:var(--blue);font-weight:700;">💾 Enregistrer</button>
+        <button class="mini-btn" onclick="cancelEdit('${msgId}')" style="font-weight:700;">✖ Annuler</button>
+    `;
+
+    bubble.innerHTML = '';
+    bubble.appendChild(textarea);
+    bubble.appendChild(btnGroup);
+    textarea.focus();
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+}
+
+function saveEdit(msgId, btn) {
+    const row = document.querySelector(`[data-msg-id="${msgId}"]`);
+    if (!row) return;
+    const textarea = row.querySelector('.edit-textarea');
+    if (!textarea) return;
+    const newContent = textarea.value.trim();
+    if (!newContent) { showToast('Le message ne peut pas être vide.', 'err'); return; }
+
+    btn.disabled = true;
+    btn.textContent = '⏳';
+
+    fetch(`/messages/${msgId}`, {
+        method: 'PUT',
+        headers: { 'X-CSRF-TOKEN': CSRF, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ content: newContent })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            const bubble = row.querySelector('.msg-bubble');
+            // Re-render with new content
+            const editBadge = '<span class="edit-badge">(modifié)</span>';
+            bubble.innerHTML = esc(newContent) + editBadge;
+            showToast('Message modifié.', 'ok');
+
+            // Also update local conversation data
+            if (activeId && conversations[activeId]) {
+                const msgs = conversations[activeId].messages;
+                const idx = msgs.findIndex(m => String(m.id) === String(msgId));
+                if (idx !== -1) {
+                    msgs[idx].text = newContent;
+                    msgs[idx].isEdited = true;
+                }
+            }
+        } else {
+            showToast(data.message || 'Erreur modification.', 'err');
+            btn.disabled = false;
+            btn.textContent = '💾 Enregistrer';
+        }
+    })
+    .catch(() => {
+        showToast('Erreur réseau.', 'err');
+        btn.disabled = false;
+        btn.textContent = '💾 Enregistrer';
+    });
+}
+
+function cancelEdit(msgId) {
+    const row = document.querySelector(`[data-msg-id="${msgId}"]`);
+    if (!row) return;
+    // Re-render original message from local data
+    if (activeId && conversations[activeId]) {
+        const msgs = conversations[activeId].messages;
+        const msg = msgs.find(m => String(m.id) === String(msgId));
+        if (msg) {
+            const bubble = row.querySelector('.msg-bubble');
+            const editBadge = msg.isEdited ? '<span class="edit-badge">(modifié)</span>' : '';
+            bubble.innerHTML = esc(msg.text) + editBadge;
+        }
+    }
+}
+
+// ── DELETE MESSAGE ──
+function deleteMessage(msgId, btn) {
+    if (!msgId) return;
+    if (!confirm('Supprimer ce message ?')) return;
+
+    fetch(`/messages/${msgId}`, {
+        method: 'DELETE',
+        headers: { 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json' }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            // Remove from DOM
+            const row = document.querySelector(`[data-msg-id="${msgId}"]`);
+            if (row) {
+                const meta = row.nextElementSibling;
+                if (meta && meta.classList.contains('msg-meta')) meta.remove();
+                row.remove();
+            }
+            // Remove from local data
+            if (activeId && conversations[activeId]) {
+                conversations[activeId].messages = conversations[activeId].messages.filter(m => String(m.id) !== String(msgId));
+                save();
+            }
+            showToast('Message supprimé.', 'ok');
+        } else {
+            showToast(data.message || 'Erreur suppression.', 'err');
+        }
+    })
+    .catch(() => showToast('Erreur réseau.', 'err'));
 }
 
 function createNewConv() {
@@ -1353,12 +1680,11 @@ function createNewConv() {
     textarea.focus();
     closeSidebar();
 }
-function loadConv(id) {
+async function loadConv(id) {
     activeId = id;
     save();
     renderConvList();
-    renderMessages(conversations[id]?.messages || []);
-    syncBackendMessages();
+    await loadMessagesFromBackend(id);
     closeSidebar();
 }
 function addMsgToConv(msg) {
@@ -1424,7 +1750,10 @@ async function sendMessage() {
     flags.urgent = false;
     flags.escalated = false;
     flags.ticket = false;
-    ['btnUrgent','btnEscalated','btnTicket'].forEach(id => document.getElementById(id).classList.remove('active'));
+    ['btnUrgent','btnEscalated','btnTicket'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.classList.remove('active');
+    });
     syncHiddenFlags();
     renderFlagsBar();
 
@@ -1591,7 +1920,17 @@ function readFile(file) {
     });
 }
 
-sendBtn.addEventListener('click', sendMessage);
+console.log('Send button:', sendBtn);
+
+if (sendBtn) {
+    sendBtn.addEventListener('click', (e) => {
+        console.log('Send button clicked');
+        e.preventDefault();
+        sendMessage();
+    });
+} else {
+    console.error('Send button not found!');
+}
 textarea.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -1680,17 +2019,64 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     };
 }
 
-document.getElementById('newChatBtn').addEventListener('click', createNewConv);
-darkToggle.addEventListener('click', () => {
+console.log('Chat initialized, attaching event listeners...');
+
+document.getElementById('newChatBtn').addEventListener('click', () => {
+    console.log('New chat button clicked');
+    createNewConv();
+});
+
+// ── Menu hamburger + dropdown actions ──
+const menuBtn = document.getElementById('menuBtn');
+const chatDropdown = document.getElementById('chatDropdown');
+console.log('Menu button:', menuBtn);
+console.log('Chat dropdown:', chatDropdown);
+
+if (menuBtn && chatDropdown) {
+    menuBtn.addEventListener('click', (e) => {
+        console.log('Menu button clicked, current state:', chatDropdown.classList.contains('show'));
+        e.stopPropagation();
+        const isOpen = chatDropdown.classList.toggle('show');
+        menuBtn.classList.toggle('open', isOpen);
+        console.log('Menu dropdown new state:', isOpen);
+    });
+} else {
+    console.error('Menu button or dropdown not found!');
+}
+document.addEventListener('click', () => {
+    if (chatDropdown) chatDropdown.classList.remove('show');
+    if (menuBtn) menuBtn.classList.remove('open');
+    if (ctxMenu) ctxMenu.classList.remove('show');
+    if (userDD) userDD.classList.remove('show');
+});
+
+// Dropdown actions
+const ddExport = document.getElementById('ddExport');
+const ddClear = document.getElementById('ddClear');
+const ddDark = document.getElementById('ddDark');
+const ddSettings = document.getElementById('ddSettings');
+
+if (ddExport) ddExport.addEventListener('click', () => { exportActiveConversation(); });
+if (ddClear) ddClear.addEventListener('click', () => { clearActiveConversation(); });
+if (ddDark) ddDark.addEventListener('click', () => {
     document.body.classList.toggle('dark');
     const isDark = document.body.classList.contains('dark');
     localStorage.setItem('it_dark_mode', isDark ? '1' : '0');
-    darkToggle.classList.toggle('active', isDark);
-    darkToggle.textContent = isDark ? '☀' : '☾';
+    const ddDarkBtn = ddDark.querySelector('.dd-icon');
+    if (ddDarkBtn) ddDarkBtn.textContent = isDark ? '☀️' : '🌙';
 });
-exportBtn.addEventListener('click', exportActiveConversation);
-clearBtn.addEventListener('click', clearActiveConversation);
-convSearch.addEventListener('input', e => renderConvList(e.target.value));
+if (ddSettings) ddSettings.addEventListener('click', () => {
+    showToast('Paramètres à configurer', 'ok');
+});
+
+console.log('Conv search:', convSearch);
+
+if (convSearch) {
+    convSearch.addEventListener('input', e => {
+        console.log('Search input:', e.target.value);
+        renderConvList(e.target.value);
+    });
+}
 function openCtx(e, id) {
     e.stopPropagation();
     ctxTargetId = id;
@@ -1710,30 +2096,62 @@ function renameConv() {
 }
 function deleteConv() {
     if (!ctxTargetId) return;
-    if (!confirm('Supprimer cette conversation ?')) return;
-    delete conversations[ctxTargetId];
-    if (activeId === ctxTargetId) {
-        activeId = null;
-        renderMessages([]);
-        showWelcome(true);
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cette conversation ?')) return;
+
+    const backendId = conversations[ctxTargetId]?.backendId;
+
+    // If conversation has a backend ID, delete from DB via API
+    if (backendId) {
+        fetch(`/conversations/${backendId}`, {
+            method: 'DELETE',
+            headers: { 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json' }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                delete conversations[ctxTargetId];
+                if (activeId === ctxTargetId) {
+                    activeId = null;
+                    renderMessages([]);
+                    showWelcome(true);
+                }
+                ctxTargetId = null;
+                save();
+                renderConvList();
+                showToast('Conversation supprimée.', 'ok');
+            } else {
+                showToast(data.message || 'Erreur suppression.', 'err');
+            }
+        })
+        .catch(() => {
+            showToast('Erreur réseau.', 'err');
+        });
+    } else {
+        // Local-only conversation — just remove from localStorage
+        delete conversations[ctxTargetId];
+        if (activeId === ctxTargetId) {
+            activeId = null;
+            renderMessages([]);
+            showWelcome(true);
+        }
+        ctxTargetId = null;
+        save();
+        renderConvList();
     }
-    ctxTargetId = null;
-    save();
-    renderConvList();
     ctxMenu.classList.remove('show');
 }
-document.addEventListener('click', () => {
-    ctxMenu.classList.remove('show');
-    userDD.classList.remove('show');
-});
-document.getElementById('userMenuBtn').addEventListener('click', e => {
-    e.stopPropagation();
-    userDD.classList.toggle('show');
-});
-document.getElementById('hamburger').addEventListener('click', () => {
-    sidebar.classList.toggle('open');
-    overlay.classList.toggle('show');
-});
+const userMenuBtn = document.getElementById('userMenuBtn');
+console.log('User menu button:', userMenuBtn);
+
+if (userMenuBtn) {
+    userMenuBtn.addEventListener('click', (e) => {
+        console.log('User menu button clicked');
+        e.stopPropagation();
+        userDD.classList.toggle('show');
+    });
+} else {
+    console.error('User menu button not found!');
+}
 overlay.addEventListener('click', closeSidebar);
 function closeSidebar() {
     sidebar.classList.remove('open');
@@ -1780,35 +2198,38 @@ function clearActiveConversation() {
 }
 function updateNetworkStatus() {
     const online = navigator.onLine;
-    netPill.classList.toggle('off', !online);
-    netPill.textContent = online ? '● Online' : '● Offline';
+    if (!online) showToast('Vous êtes hors ligne', 'err');
 }
 window.addEventListener('online', () => { updateNetworkStatus(); showToast('Connexion rétablie', 'ok'); });
 window.addEventListener('offline', () => { updateNetworkStatus(); showToast('Vous êtes hors ligne', 'err'); });
 
-(function init() {
-    marked.setOptions({
-        breaks: true,
-        gfm: true,
-        headerIds: false,
-        mangle: false
-    });
-    if (localStorage.getItem('it_dark_mode') === '1') {
-        document.body.classList.add('dark');
-        darkToggle.classList.add('active');
-        darkToggle.textContent = '☀';
+(async function init() {
+    try {
+        marked.setOptions({
+            breaks: true,
+            gfm: true,
+            headerIds: false,
+            mangle: false
+        });
+        if (localStorage.getItem('it_dark_mode') === '1') {
+            document.body.classList.add('dark');
+        }
+        await load();
+        updateNetworkStatus();
+        renderConvList();
+        renderFlagsBar();
+        if (activeId && conversations[activeId]) {
+            renderMessages(conversations[activeId].messages);
+            // Load fresh messages from backend for active conversation
+            await loadMessagesFromBackend(activeId);
+        } else {
+            showWelcome(true);
+        }
+        syncTimer = setInterval(() => syncBackendMessages(true), 15000);
+        console.log('Chat fully initialized successfully');
+    } catch (err) {
+        console.error('Chat initialization error:', err);
     }
-    load();
-    updateNetworkStatus();
-    renderConvList();
-    renderFlagsBar();
-    if (activeId && conversations[activeId]) {
-        renderMessages(conversations[activeId].messages);
-        syncBackendMessages();
-    } else {
-        showWelcome(true);
-    }
-    syncTimer = setInterval(() => syncBackendMessages(true), 15000);
 })();
 </script>
 </body>

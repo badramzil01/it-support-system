@@ -166,7 +166,7 @@ Route::get(
 |--------------------------------------------------------------------------
 */
 
-Route::post(
+Route::match(['GET', 'POST', 'OPTIONS'],
     '/jira/create',
     [JiraController::class, 'create']
 );
@@ -183,6 +183,19 @@ Route::get('/jira-test/{key}', function ($key) {
 | CORS
 |--------------------------------------------------------------------------
 */
+
+/*
+|--------------------------------------------------------------------------
+| ESCALATION & SUPPORT TEAMS API
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware('auth')->group(function () {
+    Route::get('/support-teams', [\App\Http\Controllers\Admin\SupportTeamController::class, 'apiTeams']);
+    Route::get('/support-teams/sla-stats', [\App\Http\Controllers\Admin\SupportTeamController::class, 'apiSlaStats']);
+    Route::get('/support-teams/team-performance', [\App\Http\Controllers\Admin\SupportTeamController::class, 'apiTeamPerformance']);
+    Route::get('/support-teams/escalation-logs', [\App\Http\Controllers\Admin\SupportTeamController::class, 'apiEscalationLogs']);
+});
 
 Route::options('{any}', function () {
 

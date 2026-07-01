@@ -26,7 +26,7 @@
 {{-- KPI Cards --}}
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
 
-    {{-- Total tickets --}}
+    {{-- My Tickets --}}
     <div class="stat-card bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 md:p-5 shadow-sm">
         <div class="flex items-start justify-between mb-3">
             <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/30">
@@ -34,58 +34,73 @@
                     <path fill-rule="evenodd" d="M5.5 3A2.5 2.5 0 0 0 3 5.5v9A2.5 2.5 0 0 0 5.5 17h9a2.5 2.5 0 0 0 2.5-2.5v-9A2.5 2.5 0 0 0 14.5 3h-9Zm1 3.75A.75.75 0 0 1 7.25 6h5.5a.75.75 0 0 1 0 1.5h-5.5a.75.75 0 0 1-.75-.75Zm0 3.25A.75.75 0 0 1 7.25 9.25h5.5a.75.75 0 0 1 0 1.5h-5.5A.75.75 0 0 1 6.5 10Zm.75 2.5h3.5a.75.75 0 0 1 0 1.5h-3.5a.75.75 0 0 1 0-1.5Z" clip-rule="evenodd"/>
                 </svg>
             </div>
-            <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full">
-                <svg class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 17a.75.75 0 0 1-.75-.75V5.612L5.29 9.77a.75.75 0 0 1-1.08-1.04l5.25-5.5a.75.75 0 0 1 1.08 0l5.25 5.5a.75.75 0 1 1-1.08 1.04l-3.96-4.158V16.25A.75.75 0 0 1 10 17Z" clip-rule="evenodd"/></svg>
-                +12%
-            </span>
         </div>
-        <p class="text-3xl font-bold text-slate-900 dark:text-white leading-none">248</p>
-        <p class="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1.5">Total tickets</p>
-        <div class="mt-3 h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-            <div class="h-full bg-blue-500 rounded-full" style="width: 72%"></div>
-        </div>
+        <p class="text-3xl font-bold text-slate-900 dark:text-white leading-none">{{ $myTickets ?? 0 }}</p>
+        <p class="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1.5">Mes tickets</p>
     </div>
 
-    {{-- En cours --}}
+    {{-- N1: Escalated To N2 --}}
+    @if($userLevel === 'n1')
     <div class="stat-card bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 md:p-5 shadow-sm">
         <div class="flex items-start justify-between mb-3">
             <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 dark:bg-amber-900/30">
                 <svg class="h-5 w-5 text-amber-600 dark:text-amber-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-13a.75.75 0 0 0-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 0 0 0-1.5h-3.25V5Z" clip-rule="evenodd"/>
+                    <path fill-rule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clip-rule="evenodd"/>
                 </svg>
             </div>
-            <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-full">
-                En attente
-            </span>
         </div>
-        <p class="text-3xl font-bold text-slate-900 dark:text-white leading-none">43</p>
-        <p class="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1.5">En cours</p>
-        <div class="mt-3 h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-            <div class="h-full bg-amber-400 rounded-full" style="width: 43%"></div>
-        </div>
+        <p class="text-3xl font-bold text-slate-900 dark:text-white leading-none">{{ $escalatedToN2 ?? 0 }}</p>
+        <p class="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1.5">Escaladés vers N2</p>
     </div>
+    @endif
 
-    {{-- Résolus --}}
+    {{-- N2: Received From N1 --}}
+    @if($userLevel === 'n2')
     <div class="stat-card bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 md:p-5 shadow-sm">
         <div class="flex items-start justify-between mb-3">
             <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-900/30">
                 <svg class="h-5 w-5 text-emerald-600 dark:text-emerald-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z" clip-rule="evenodd"/>
+                    <path fill-rule="evenodd" d="M10 17a.75.75 0 0 1-.75-.75V5.612L5.29 9.77a.75.75 0 0 1-1.08-1.04l5.25-5.5a.75.75 0 0 1 1.08 0l5.25 5.5a.75.75 0 1 1-1.08 1.04l-3.96-4.158V16.25A.75.75 0 0 1 10 17Z" clip-rule="evenodd"/>
                 </svg>
             </div>
-            <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full">
-                <svg class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 17a.75.75 0 0 1-.75-.75V5.612L5.29 9.77a.75.75 0 0 1-1.08-1.04l5.25-5.5a.75.75 0 0 1 1.08 0l5.25 5.5a.75.75 0 1 1-1.08 1.04l-3.96-4.158V16.25A.75.75 0 0 1 10 17Z" clip-rule="evenodd"/></svg>
-                +8%
-            </span>
         </div>
-        <p class="text-3xl font-bold text-slate-900 dark:text-white leading-none">185</p>
-        <p class="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1.5">Résolus ce mois</p>
-        <div class="mt-3 h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-            <div class="h-full bg-emerald-500 rounded-full" style="width: 85%"></div>
-        </div>
+        <p class="text-3xl font-bold text-slate-900 dark:text-white leading-none">{{ $receivedFromN1 ?? 0 }}</p>
+        <p class="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1.5">Reçus de N1</p>
     </div>
+    @endif
 
-    {{-- Critiques --}}
+    {{-- N2: Escalated To N3 --}}
+    @if($userLevel === 'n2')
+    <div class="stat-card bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 md:p-5 shadow-sm">
+        <div class="flex items-start justify-between mb-3">
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 dark:bg-red-900/30">
+                <svg class="h-5 w-5 text-red-600 dark:text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clip-rule="evenodd"/>
+                </svg>
+            </div>
+        </div>
+        <p class="text-3xl font-bold text-slate-900 dark:text-white leading-none">{{ $escalatedToN3 ?? 0 }}</p>
+        <p class="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1.5">Escaladés vers N3</p>
+    </div>
+    @endif
+
+    {{-- N3: Received From N2 --}}
+    @if($userLevel === 'n3')
+    <div class="stat-card bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 md:p-5 shadow-sm">
+        <div class="flex items-start justify-between mb-3">
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 dark:bg-violet-900/30">
+                <svg class="h-5 w-5 text-violet-600 dark:text-violet-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 17a.75.75 0 0 1-.75-.75V5.612L5.29 9.77a.75.75 0 0 1-1.08-1.04l5.25-5.5a.75.75 0 0 1 1.08 0l5.25 5.5a.75.75 0 1 1-1.08 1.04l-3.96-4.158V16.25A.75.75 0 0 1 10 17Z" clip-rule="evenodd"/>
+                </svg>
+            </div>
+        </div>
+        <p class="text-3xl font-bold text-slate-900 dark:text-white leading-none">{{ $receivedFromN2 ?? 0 }}</p>
+        <p class="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1.5">Reçus de N2</p>
+    </div>
+    @endif
+
+    {{-- N3: Critical Tickets --}}
+    @if($userLevel === 'n3')
     <div class="stat-card bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 md:p-5 shadow-sm">
         <div class="flex items-start justify-between mb-3">
             <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 dark:bg-red-900/30">
@@ -94,15 +109,28 @@
                 </svg>
             </div>
             <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 px-2 py-0.5 rounded-full">
-                Urgent
+                Critique
             </span>
         </div>
-        <p class="text-3xl font-bold text-slate-900 dark:text-white leading-none">3</p>
-        <p class="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1.5">Escalades critiques</p>
-        <div class="mt-3 h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-            <div class="h-full bg-red-500 rounded-full" style="width: 15%"></div>
-        </div>
+        <p class="text-3xl font-bold text-slate-900 dark:text-white leading-none">{{ $criticalTickets ?? 0 }}</p>
+        <p class="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1.5">Tickets critiques</p>
     </div>
+    @endif
+
+    {{-- Manager/Admin fallback card --}}
+    @if(!$userLevel || $userLevel === 'manager')
+    <div class="stat-card bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 md:p-5 shadow-sm">
+        <div class="flex items-start justify-between mb-3">
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 dark:bg-purple-900/30">
+                <svg class="h-5 w-5 text-purple-600 dark:text-purple-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-7 8a7 7 0 1 1 14 0 .75.75 0 0 1-.75.75H3.75A.75.75 0 0 1 3 17Z" clip-rule="evenodd"/>
+                </svg>
+            </div>
+        </div>
+        <p class="text-3xl font-bold text-slate-900 dark:text-white leading-none">{{ $escalated ?? 0 }}</p>
+        <p class="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1.5">Escaladés</p>
+    </div>
+    @endif
 </div>
 
 {{-- Content grid --}}

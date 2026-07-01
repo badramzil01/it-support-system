@@ -74,7 +74,7 @@ class N8nService
             \App\Models\IntegrationConfig::getValue($svc, $key, $env);
 
         $url = $cfg('n8n', 'webhook_support', 'N8N_WEBHOOK_URL')
-            ?? 'http://localhost:5678/webhook/support';
+            ?? 'http://localhost:5678/webhook-test/support';
 
         $traceId = request()->header('X-Trace-Id') ?? (string) \Illuminate\Support\Str::uuid();
 

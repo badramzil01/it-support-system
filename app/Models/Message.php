@@ -52,17 +52,22 @@ class Message extends Model
 
         'support_agent_id',
         
- 	   // =====================================
-        // 📊 user_message
+        // =====================================
+        // 📊 USER MESSAGE (original text)
         // =====================================
         'user_message',
-
 
         // =====================================
         // 🖼 IMAGE
         // =====================================
         'image_path',
-        'mime_type'
+        'mime_type',
+
+        // =====================================
+        // 👁 VISION ANALYSIS
+        // =====================================
+        'vision_analysis',
+        'ai_metadata',
     ];
 
     protected $casts = [

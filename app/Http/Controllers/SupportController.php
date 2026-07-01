@@ -27,7 +27,7 @@ class SupportController extends Controller
 
     private function getWebhookSupportUrl(): string
     {
-        return $this->n8nUrl('webhook_support', 'N8N_WEBHOOK_URL', 'http://localhost:5678/webhook/support');
+        return $this->n8nUrl('webhook_support', 'N8N_WEBHOOK_URL', 'http://localhost:5678/webhook-test/support');
     }
 
     private function getWebhookJiraUrl(): string
@@ -208,16 +208,23 @@ class SupportController extends Controller
                     'is_urgent'       => $isUrgent,
                     'is_escalated'    => $isEscalated,
                     'create_ticket'   => $createTicket,
-                    'image_url'       => $image['image_url'] ?? '',
+                    'image_url'       => $image['image_docker_url'] ?? $image['image_url'] ?? '',
                     'image_base64'    => $image['image_base64'] ?? '',
                     'mime_type'       => $image['mime_type'] ?? '',
                     'has_image'       => true,
                     'messages'        => $messages,
                 ], $traceId, 45);
 
-                $solution       = $aiResult['message'];
+                $rawAiMessage   = $aiResult['message'];
+                $solution       = $this->extractAiMessage($rawAiMessage);
                 $n8nUserMessage = $aiResult['user_message'] ?? null;
                 $source         = $aiResult['ok'] ? 'vision_ai' : 'system';
+
+                Log::info('support.ai.vision.parsed', [
+                    'trace_id'       => $traceId,
+                    'raw_message'    => is_string($rawAiMessage) ? Str::limit($rawAiMessage, 200) : null,
+                    'parsed_message' => Str::limit($solution, 200),
+                ]);
                 $status         = $aiResult['ok'] ? 'resolved' : 'error';
                 $confidence     = $aiResult['ok'] ? 92 : 0;
                 $showTicket     = true;
@@ -291,9 +298,16 @@ class SupportController extends Controller
                         'messages'        => $messages,
                     ], $traceId, 30);
 
-                    $solution       = $aiResult['message'];
+                    $rawAiMessage   = $aiResult['message'];
+                    $solution       = $this->extractAiMessage($rawAiMessage);
                     $n8nUserMessage = $aiResult['user_message'] ?? null;
                     $source         = $aiResult['ok'] ? 'ai' : 'system';
+
+                    Log::info('support.ai.openrouter.parsed', [
+                        'trace_id'       => $traceId,
+                        'raw_message'    => is_string($rawAiMessage) ? Str::limit($rawAiMessage, 200) : null,
+                        'parsed_message' => Str::limit($solution, 200),
+                    ]);
                     $status         = $aiResult['ok'] ? 'resolved' : 'error';
                     $confidence     = $aiResult['ok'] ? 85 : 0;
                     $showTicket     = $aiResult['ok'];
@@ -318,12 +332,14 @@ class SupportController extends Controller
 
             // Save AI response to DB if AI was used successfully
             if (in_array($source, ['ai', 'vision_ai']) && $status !== 'error') {
+                $aiMessageForStorage = $this->extractAiMessage($solution);
+
                 \App\Models\AIResponse::create([
                     'conversation_id' => $conversation->id,
                     'user_id'         => $userId,
-                    'message'         => $solution,
+                    'message'         => $aiMessageForStorage,
                     'user_message'    => $originalMessage !== '' ? $originalMessage : 'Screenshot envoye',
-                    'ai_response'     => $solution,
+                    'ai_response'     => $aiMessageForStorage,
                     'source'          => $source,
                     'priority'        => $priority,
                     'category'        => $category,
@@ -379,8 +395,8 @@ class SupportController extends Controller
                 'user_id'         => $userId,
                 'conversation_id' => $conversation->id,
                 'sender'          => 'bot',
-                'content'         => $solution,
-                'response'        => $solution,
+                'content'         => $this->extractAiMessage($solution),
+                'response'        => $this->extractAiMessage($solution),
                 'channel'         => 'web',
                 'source'          => $source,
                 'status'          => $status,
@@ -503,6 +519,22 @@ class SupportController extends Controller
                             'ticket_id'      => $ticket->id,
                             'jira_ticket_id' => $jiraKey,
                         ]);
+
+                        // Sync category to Jira as labels
+                        if ($ticket->category && $ticket->category !== 'general') {
+                            try {
+                                $jiraService = app(JiraService::class);
+                                $label = strtolower(str_replace(' ', '_', $ticket->category));
+                                $jiraService->updateLabels($jiraKey, [$label]);
+                            } catch (\Throwable $e) {
+                                Log::warning('support.jira.labels.failed', [
+                                    'trace_id'  => $traceId,
+                                    'jira_key'  => $jiraKey,
+                                    'category'  => $ticket->category,
+                                    'error'     => $e->getMessage(),
+                                ]);
+                            }
+                        }
                     }
                 } else {
                     $ticketId = $ticket->jira_ticket_id;
@@ -580,7 +612,16 @@ class SupportController extends Controller
             ]);
 
             $ticket  = Ticket::findOrFail($id);
+
+            // ⚠️ Reject null or empty strings explicitly before any processing
             $jiraKey = trim($request->input('jira_ticket_id'));
+
+            if (empty($jiraKey)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'jira_ticket_id is empty or invalid.',
+                ], 422);
+            }
 
             if (!empty($ticket->jira_ticket_id)) {
                 return response()->json([
@@ -654,7 +695,20 @@ class SupportController extends Controller
                     'id', 'user_id', 'conversation_id', 'sender',
                     'content', 'response', 'image_path', 'source',
                     'status', 'user_message', 'created_at',
+                    'is_edited', 'edited_at',
                 ]);
+
+            // Fix image_path for frontend: replace host.docker.internal with proper host
+            $messages->transform(function ($message) {
+                if ($message->image_path && str_contains($message->image_path, 'host.docker.internal')) {
+                    $message->image_path = str_replace(
+                        'host.docker.internal',
+                        request()->getHost(),
+                        $message->image_path
+                    );
+                }
+                return $message;
+            });
 
             return response()->json([
                 'success'  => true,
@@ -791,6 +845,18 @@ class SupportController extends Controller
                 ->get([
                     'id','user_id','conversation_id','sender','content','response','image_path','source','status','user_message','created_at'
                 ]);
+
+            // Fix image_path for frontend: replace host.docker.internal with proper host
+            $messages->transform(function ($message) {
+                if ($message->image_path && str_contains($message->image_path, 'host.docker.internal')) {
+                    $message->image_path = str_replace(
+                        'host.docker.internal',
+                        request()->getHost(),
+                        $message->image_path
+                    );
+                }
+                return $message;
+            });
 
             return response()->json([
                 'success' => true,
@@ -1252,6 +1318,11 @@ class SupportController extends Controller
             'image_url'       => $data['image_url']       ?? null,
             'mime_type'       => $data['mime_type']       ?? null,
             'ticket_status'   => 'pending',
+            // Niveau d'assignation initial : N1 (support niveau 1)
+            'support_level'   => 'N1',
+            'assigned_team'   => 'support_n1',
+            'escalation_level' => 0,
+            'is_escalated'    => $isEscalated,
         ]);
 
         Log::info('support.ticket.created', [
@@ -1259,6 +1330,9 @@ class SupportController extends Controller
             'id'              => $ticket->id,
             'user_id'         => $ticket->user_id,
             'conversation_id' => $ticket->conversation_id,
+            'support_level'   => $ticket->support_level,
+            'assigned_team'   => $ticket->assigned_team,
+            'escalation_level'=> $ticket->escalation_level,
             'is_escalated'    => $ticket->is_escalated,
             'is_urgent'       => $ticket->is_urgent,
             'title'           => $ticket->title,
@@ -1339,6 +1413,89 @@ class SupportController extends Controller
         }
 
         return 'Probleme signale — ' . ucfirst($category);
+    }
+
+    // =========================================================================
+    // PRIVATE — AI RESPONSE EXTRACTION
+    // =========================================================================
+
+    /**
+     * Extrait le message IA depuis une réponse brute qui peut contenir du JSON encapsulé.
+     *
+     * Cas courants :
+     *   - "Bonjour..." (texte brut)
+     *   - "{\"message\":\"Bonjour...\",\"summary\":\"...\"}" (JSON string)
+     *   - {"message":"Bonjour...","summary":"..."} (objet/déjà décodé)
+     */
+    private function extractAiMessage(mixed $response): string
+    {
+        // Si c'est déjà un tableau, essayer d'extraire 'message'
+        if (is_array($response)) {
+            $message = $response['message'] ?? $response['ai_response'] ?? $response['solution'] ?? $response['text'] ?? null;
+            if (is_string($message)) {
+                $response = $message;
+            } elseif (is_array($message)) {
+                $response = $this->extractAiMessage($message);
+                return $response;
+            } else {
+                $response = $message ?? '';
+            }
+        }
+
+        if (!is_string($response)) {
+            return '';
+        }
+
+        $trimmed = trim($response);
+
+        // Tenter de décoder le JSON si la chaîne commence par '{' ou '['
+        if (str_starts_with($trimmed, '{') || str_starts_with($trimmed, '[')) {
+            $decoded = json_decode($trimmed, true);
+
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                // {"message":"...","summary":"..."}
+                if (isset($decoded['message']) && is_string($decoded['message'])) {
+                    $trimmed = trim($decoded['message']);
+                }
+                // [{"message":"..."}]
+                elseif (array_is_list($decoded) && isset($decoded[0]['message']) && is_string($decoded[0]['message'])) {
+                    $trimmed = trim($decoded[0]['message']);
+                }
+                // {"response":{"message":"..."}}
+                elseif (isset($decoded['response']['message']) && is_string($decoded['response']['message'])) {
+                    $trimmed = trim($decoded['response']['message']);
+                }
+                // {"data":{"message":"..."}}
+                elseif (isset($decoded['data']['message']) && is_string($decoded['data']['message'])) {
+                    $trimmed = trim($decoded['data']['message']);
+                } else {
+                    // Fallback : prendre la première chaîne non vide du tableau/DTO
+                    $firstString = $this->findFirstString($decoded);
+                    if ($firstString !== null) {
+                        $trimmed = $firstString;
+                    }
+                }
+            }
+        }
+
+        return $trimmed;
+    }
+
+    private function findFirstString(array $data): ?string
+    {
+        foreach ($data as $value) {
+            if (is_string($value) && trim($value) !== '') {
+                return trim($value);
+            }
+            if (is_array($value)) {
+                $found = $this->findFirstString($value);
+                if ($found !== null) {
+                    return $found;
+                }
+            }
+        }
+
+        return null;
     }
 
     // =========================================================================
@@ -1956,10 +2113,11 @@ class SupportController extends Controller
     {
         if (!$file) {
             return [
-                'has_image'    => false,
-                'image_url'    => '',
-                'image_base64' => '',
-                'mime_type'    => '',
+                'has_image'       => false,
+                'image_url'       => '',
+                'image_docker_url' => '',
+                'image_base64'    => '',
+                'mime_type'       => '',
             ];
         }
 
@@ -1974,13 +2132,16 @@ class SupportController extends Controller
         $safeName    = now()->format('Ymd_His') . '_' . Str::uuid() . '.' . $extension;
         $imagePath   = $file->storeAs('support-images', $safeName, 'public');
         
-        $urlPath     = Storage::disk('public')->url($imagePath);
+        // URL relative pour le navigateur (stockée en DB et utilisée par le frontend)
+        $urlPath = Storage::disk('public')->url($imagePath);
         if (!str_starts_with($urlPath, 'http')) {
             $imageUrl = url($urlPath);
         } else {
             $imageUrl = $urlPath;
         }
-        $imageUrl    = str_replace(['127.0.0.1', 'localhost'], 'host.docker.internal', $imageUrl);
+        
+        // URL absolue pour n8n (Docker) - remplace localhost par host.docker.internal
+        $imageDockerUrl = str_replace(['127.0.0.1', 'localhost'], 'host.docker.internal', $imageUrl);
         
         $imageBase64 = base64_encode(file_get_contents($file->getRealPath()));
 
@@ -1988,16 +2149,18 @@ class SupportController extends Controller
             'trace_id'  => $traceId,
             'path'      => $imagePath,
             'url'       => $imageUrl,
+            'docker_url' => $imageDockerUrl,
             'mime_type' => $mime,
             'size_kb'   => round($file->getSize() / 1024, 1),
             'base64_kb' => round(strlen($imageBase64) / 1024, 1),
         ]);
 
         return [
-            'has_image'    => true,
-            'image_url'    => $imageUrl,
-            'image_base64' => $imageBase64,
-            'mime_type'    => $mime,
+            'has_image'       => true,
+            'image_url'       => $imageUrl,       // URL relative/navigateur (stockée en DB)
+            'image_docker_url' => $imageDockerUrl, // URL absolute pour n8n/Docker
+            'image_base64'    => $imageBase64,
+            'mime_type'       => $mime,
         ];
     }
 }

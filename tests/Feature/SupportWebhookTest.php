@@ -64,7 +64,7 @@ class SupportWebhookTest extends TestCase
 
         // Assert HTTP payload sent to n8n has correct keys
         Http::assertSent(function ($request) use ($user) {
-            return $request->url() === 'http://localhost:5678/webhook/support' &&
+            return $request->url() === 'http://localhost:5678/webhook-test/support' &&
                 $request['conversation_id'] !== null &&
                 $request['user_id'] === $user->id &&
                 $request['customer_email'] === 'user@example.com' &&
@@ -130,7 +130,7 @@ class SupportWebhookTest extends TestCase
 
         // Assert HTTP payload sent to n8n has correct image details
         Http::assertSent(function ($request) use ($user) {
-            return $request->url() === 'http://localhost:5678/webhook/support' &&
+            return $request->url() === 'http://localhost:5678/webhook-test/support' &&
                 $request['conversation_id'] !== null &&
                 $request['user_id'] === $user->id &&
                 $request['customer_email'] === 'user@example.com' &&

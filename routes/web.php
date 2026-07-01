@@ -3,6 +3,8 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SupportController;
+use App\Http\Controllers\ClientController;
+use App\Http\Controllers\ConversationController;
 
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\LogController;
@@ -36,7 +38,7 @@ use App\Http\Controllers\SupportUI\InternalCommunicationController as SupportUII
 // =====================================================
 Route::get('/', function () {
     if (auth()->check()) {
-        return redirect('/chat');
+        return redirect()->route('client.dashboard');
     }
     return redirect('/login');
 });
@@ -46,7 +48,7 @@ Route::get('/', function () {
 // =====================================================
 Route::get('/chat', function () {
     return view('chat');
-})->middleware('auth');
+})->middleware('auth')->name('chat.index');
 
 // =====================================================
 // CHATBOT WEBHOOK
@@ -55,12 +57,24 @@ Route::post('/webhook/support', [SupportController::class, 'handle'])
     ->middleware('auth');
 
 // =====================================================
-// DEFAULT DASHBOARD
+// DEFAULT DASHBOARD - Redirige vers le nouvel espace client
 // =====================================================
 Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])
-  ->name('dashboard');
+    $user = auth()->user();
+
+    // Admin → Admin Dashboard
+    if ($user->isAdmin()) {
+        return redirect()->route('admin.dashboard');
+    }
+
+    // Support → Support Dashboard
+    if ($user->isSupport()) {
+        return redirect()->route('support.dashboard');
+    }
+
+    // Client → Nouvel espace client
+    return redirect()->route('client.dashboard');
+})->middleware(['auth', 'verified'])->name('dashboard');
 
 // =====================================================
 // PROFILE
@@ -74,7 +88,7 @@ Route::middleware('auth')->group(function () {
 // =====================================================
 // ADMIN
 // =====================================================
-Route::middleware(['auth', 'role:admin'])
+Route::middleware(['auth', 'role:admin', 'redirect.client'])
     ->prefix('admin')
     ->name('admin.')
     ->group(function () {
@@ -100,8 +114,14 @@ Route::middleware(['auth', 'role:admin'])
         Route::get('/tickets', [AdminTicketController::class, 'index'])->name('ui.tickets.index');
         Route::get('/tickets/{ticket}', [AdminTicketController::class, 'show'])->name('ui.tickets.show');
         Route::post('/tickets/{ticket}/status', [AdminTicketController::class, 'updateStatus'])->name('ui.tickets.updateStatus');
+        Route::post('/tickets/{ticket}/escalate', [AdminTicketController::class, 'escalate'])->name('ui.tickets.escalate');
+        Route::post('/tickets/{ticket}/reassign', [AdminTicketController::class, 'reassign'])->name('ui.tickets.reassign');
+        Route::get('/tickets/{ticket}/history', [AdminTicketController::class, 'history'])->name('ui.tickets.history');
         Route::get('/tickets/export/csv', [AdminTicketController::class, 'exportCsv'])->name('ui.tickets.export.csv');
         Route::get('/tickets/export/excel', [AdminTicketController::class, 'exportExcel'])->name('ui.tickets.export.excel');
+
+        // Escalations
+        Route::get('/escalations', [\App\Http\Controllers\Admin\EscalatedTicketsController::class, 'index'])->name('escalations.index');
 
         // Conversations
         Route::get('/conversations', [AdminConversationController::class, 'index'])->name('ui.conversations.index');
@@ -166,12 +186,23 @@ Route::middleware(['auth', 'role:admin'])
         Route::get('/internal-communication/api/team', [AdminInternalCommunicationController::class, 'apiTeam'])->name('ui.internal.api.team');
         Route::post('/internal-communication/api/mark-read/{userId}', [AdminInternalCommunicationController::class, 'apiMarkRead'])->name('ui.internal.api.markRead');
         Route::get('/internal-communication/api/unread-count', [AdminInternalCommunicationController::class, 'apiUnreadCount'])->name('ui.internal.api.unreadCount');
+
+        // Support Teams
+        Route::prefix('support-teams')->name('support-teams.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Admin\SupportTeamController::class, 'index'])->name('index');
+            Route::get('/create', [\App\Http\Controllers\Admin\SupportTeamController::class, 'create'])->name('create');
+            Route::post('/', [\App\Http\Controllers\Admin\SupportTeamController::class, 'store'])->name('store');
+            Route::get('/{supportTeam}/edit', [\App\Http\Controllers\Admin\SupportTeamController::class, 'edit'])->name('edit');
+            Route::put('/{supportTeam}', [\App\Http\Controllers\Admin\SupportTeamController::class, 'update'])->name('update');
+            Route::delete('/{supportTeam}', [\App\Http\Controllers\Admin\SupportTeamController::class, 'destroy'])->name('destroy');
+            Route::get('/reporting', [\App\Http\Controllers\Admin\SupportTeamController::class, 'reporting'])->name('reporting');
+        });
 });
 
 // =====================================================
 // SUPPORT TEAM
 // =====================================================
-Route::middleware(['auth', 'role:support'])
+Route::middleware(['auth', 'role:support|support_n1|support_n2|support_n3', 'redirect.client'])
     ->prefix('equipeIT')
     ->name('support.')
     ->group(function () {
@@ -197,6 +228,8 @@ Route::middleware(['auth', 'role:support'])
             Route::get('/tickets/{ticket}', [SupportUITicketController::class, 'show'])->name('ui.tickets.show');
             Route::post('/tickets/{ticket}/status', [SupportUITicketController::class, 'updateStatus'])->name('ui.tickets.updateStatus');
             Route::post('/tickets/{ticket}/assign-to-me', [SupportUITicketController::class, 'assignToMe'])->name('ui.tickets.assignToMe');
+            Route::post('/tickets/{ticket}/escalate', [SupportUITicketController::class, 'escalate'])->name('ui.tickets.escalate');
+            Route::post('/tickets/{ticket}/reassign', [SupportUITicketController::class, 'reassign'])->name('ui.tickets.reassign');
             Route::get('/conversations', [SupportUIConversationController::class, 'index'])->name('ui.conversations.index');
             Route::get('/conversations/{conversation}', [SupportUIConversationController::class, 'show'])->name('ui.conversations.show');
             Route::post('/conversations/send', [SupportUIConversationController::class, 'store'])->name('ui.conversations.send');
@@ -211,6 +244,8 @@ Route::middleware(['auth', 'role:support'])
             Route::put('/knowledge/{item}', [SupportUIKnowledgeController::class, 'update'])->name('ui.knowledge.update');
             Route::delete('/knowledge/{item}', [SupportUIKnowledgeController::class, 'destroy'])->name('ui.knowledge.destroy');
             Route::get('/knowledge-base/authors/{user}', [SupportUIKnowledgeController::class, 'showAuthor'])->name('ui.knowledge.author');
+            // DISABLED: Escalated Tickets page merged into single Tickets page
+            // Route::get('/escalations', [SupportUITicketController::class, 'escalatedIndex'])->name('ui.escalations.index');
             Route::get('/notifications', [SupportUINotificationController::class, 'index'])->name('ui.notifications.index');
             Route::get('/notifications/unread-count', [SupportUINotificationController::class, 'unreadCount'])->name('ui.notifications.unreadCount');
             Route::post('/notifications/{id}/read', [SupportUINotificationController::class, 'markRead'])->name('ui.notifications.read');
@@ -234,6 +269,64 @@ Route::middleware(['auth', 'role:support'])
         Route::get('/support/api/user-panel/{userId}', [\App\Http\Controllers\SupportController::class, 'userPanel'])->name('ui.api.userPanel');
         Route::get('/support/api/conversation/{convId}', [\App\Http\Controllers\SupportController::class, 'conversationPanel'])->name('ui.api.conversationPanel');
 });
+
+// =====================================================
+// CONVERSATION & MESSAGE MANAGEMENT (AJAX)
+// =====================================================
+Route::middleware(['auth'])->group(function () {
+    Route::delete('/conversations/{conversation}', [ConversationController::class, 'destroy'])->name('conversations.destroy');
+    Route::delete('/messages/{message}', [ConversationController::class, 'deleteMessage'])->name('messages.destroy');
+    Route::put('/messages/{message}', [ConversationController::class, 'updateMessage'])->name('messages.update');
+});
+
+// =====================================================
+// SUPPORT N1 - GESTION DES TICKETS NIVEAU 1
+// =====================================================
+Route::middleware(['auth', 'role:support_n1|support_n2|admin'])
+    ->prefix('support-n1')
+    ->name('support-n1.')
+    ->group(function () {
+        Route::get('/dashboard', [\App\Http\Controllers\SupportN1Controller::class, 'dashboard'])->name('dashboard');
+        Route::get('/tickets/{ticket}', [\App\Http\Controllers\SupportN1Controller::class, 'show'])->name('show');
+        Route::post('/tickets/{ticket}/status', [\App\Http\Controllers\SupportN1Controller::class, 'updateStatus'])->name('update-status');
+        Route::post('/tickets/{ticket}/escalate', [\App\Http\Controllers\SupportN1Controller::class, 'escalate'])->name('escalate');
+    });
+
+// =====================================================
+// SUPPORT N2 - GESTION DES TICKETS NIVEAU 2
+// =====================================================
+Route::middleware(['auth', 'role:support_n2|admin'])
+    ->prefix('support-n2')
+    ->name('support-n2.')
+    ->group(function () {
+        Route::get('/dashboard', [\App\Http\Controllers\SupportN2Controller::class, 'dashboard'])->name('dashboard');
+        Route::get('/tickets/{ticket}', [\App\Http\Controllers\SupportN2Controller::class, 'show'])->name('show');
+        Route::post('/tickets/{ticket}/status', [\App\Http\Controllers\SupportN2Controller::class, 'updateStatus'])->name('update-status');
+        Route::post('/tickets/{ticket}/return-to-n1', [\App\Http\Controllers\SupportN2Controller::class, 'returnToN1'])->name('return-to-n1');
+    });
+
+// =====================================================
+// CLIENT ESPACE (accessible par tous les utilisateurs authentifiés)
+// =====================================================
+Route::middleware(['auth'])
+    ->prefix('client')
+    ->name('client.')
+    ->group(function () {
+
+        // Dashboard
+        Route::get('/dashboard', [ClientController::class, 'dashboard'])->name('dashboard');
+
+        // (Chat uses the existing /chat route - route('chat.index'))
+
+        // Profile
+        Route::get('/profile', [ClientController::class, 'profile'])->name('profile');
+        Route::patch('/profile', [ClientController::class, 'updateProfile'])->name('profile.update');
+        Route::put('/profile/password', [ClientController::class, 'updatePassword'])->name('profile.password');
+        Route::post('/profile/photo', [ClientController::class, 'updatePhoto'])->name('profile.photo');
+
+        // Dark mode toggle
+        Route::post('/toggle-dark', [ClientController::class, 'toggleDarkMode'])->name('toggle-dark');
+    });
 
 // =====================================================
 // AUTH

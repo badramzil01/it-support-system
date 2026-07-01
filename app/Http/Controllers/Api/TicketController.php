@@ -137,8 +137,7 @@ class TicketController extends Controller
                 'source' => $request->source
                     ?? 'ai',
 
-                'status' => $request->status
-                    ?? 'open',
+                'status' => 'open',
 
                 'priority' => $request->priority
                     ?? 'medium',
@@ -165,12 +164,20 @@ class TicketController extends Controller
                 'mime_type' => $request->input('mime_type'),
 
                 'ticket_status' => 'pending',
+
+                // Routage automatique : tous les tickets clients démarrent en N1
+                'support_level' => 'N1',
+                'assigned_team' => 'support_n1',
+                'escalation_level' => 0,
             ]);
 
             Log::info('ticket.created', [
                 'ticket_id' => $ticket->id,
                 'user_id' => $ticket->user_id,
                 'conversation_id' => $ticket->conversation_id,
+                'support_level' => $ticket->support_level,
+                'assigned_team' => $ticket->assigned_team,
+                'escalation_level' => $ticket->escalation_level,
                 'is_escalated' => $ticket->is_escalated,
                 'is_urgent' => $ticket->is_urgent,
                 'title' => $ticket->title,

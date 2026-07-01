@@ -8,3 +8,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 \Illuminate\Support\Facades\Schedule::job(new \App\Jobs\MonitorServicesJob)->everyFiveMinutes();
+\Illuminate\Support\Facades\Schedule::job(new \App\Jobs\ProcessEscalationsJob)->everyFiveMinutes()->withoutOverlapping();

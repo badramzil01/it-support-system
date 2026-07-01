@@ -38,7 +38,7 @@ class MonitoringController extends Controller
             'laravel_api_url'    => rtrim($laravelBaseUrl, '/'),
 
             // n8n Webhooks
-            'n8n_webhook_support' => $cfg('n8n', 'webhook_support', 'http://localhost:5678/webhook/support'),
+            'n8n_webhook_support' => $cfg('n8n', 'webhook_support', 'http://localhost:5678/webhook-test/support'),
             'n8n_webhook_ticket'  => $cfg('n8n', 'webhook_ticket',  'N8N_WEBHOOK_TICKET'),
 
             // Gemini

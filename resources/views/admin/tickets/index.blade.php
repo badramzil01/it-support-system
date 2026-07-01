@@ -17,6 +17,13 @@ $statusConfig = [
     'closed'      => ['bg' => 'bg-slate-100 dark:bg-slate-800',  'text' => 'text-slate-500 dark:text-slate-400'],
 ];
 
+$levelConfig = [
+    'n1' => ['bg' => 'bg-blue-100 dark:bg-blue-900/40', 'text' => 'text-blue-700 dark:text-blue-300', 'label' => 'N1'],
+    'n2' => ['bg' => 'bg-amber-100 dark:bg-amber-900/40', 'text' => 'text-amber-700 dark:text-amber-300', 'label' => 'N2'],
+    'n3' => ['bg' => 'bg-red-100 dark:bg-red-900/40', 'text' => 'text-red-700 dark:text-red-300', 'label' => 'N3'],
+    'manager' => ['bg' => 'bg-purple-100 dark:bg-purple-900/40', 'text' => 'text-purple-700 dark:text-purple-300', 'label' => 'Mgr'],
+];
+
 function sortUrl($col, $sort, $direction) {
     $dir = ($sort === $col && $direction === 'desc') ? 'asc' : 'desc';
     return url()->current() . '?' . http_build_query(array_merge(request()->query(), ['sort' => $col, 'direction' => $dir]));
@@ -65,6 +72,17 @@ function sortIcon($col, $sort, $direction) {
                         <option value="">Toutes</option>
                         @foreach($priorities as $p)
                             <option value="{{ $p }}" {{ request('priority') == $p ? 'selected' : '' }}>{{ ucfirst($p) }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                {{-- Support Level --}}
+                <div>
+                    <label class="block mb-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">Support Level</label>
+                    <select name="support_level" class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 py-2 px-3 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100 dark:focus:ring-blue-950">
+                        <option value="">Tous</option>
+                        @foreach($levels as $key => $label)
+                            <option value="{{ $key }}" {{ request('support_level') == $key ? 'selected' : '' }}>{{ $label }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -155,6 +173,7 @@ function sortIcon($col, $sort, $direction) {
                                 'title'          => 'Titre',
                                 'user'           => 'Utilisateur',
                                 'category'       => 'Catégorie',
+                                'support_level'  => 'Level',
                                 'priority'       => 'Priorité',
                                 'status'         => 'Statut',
                                 'jira_ticket_id' => 'Jira',
@@ -184,6 +203,7 @@ function sortIcon($col, $sort, $direction) {
                         @php
                             $pCfg = $priorityConfig[$t->priority] ?? $priorityConfig['low'];
                             $sCfg = $statusConfig[$t->status]   ?? $statusConfig['closed'];
+                            $lCfg = $levelConfig[$t->support_level] ?? ['bg' => 'bg-slate-100 dark:bg-slate-800', 'text' => 'text-slate-600 dark:text-slate-400', 'label' => strtoupper($t->support_level ?? 'N1')];
                         @endphp
                         <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition group">
 
@@ -217,6 +237,13 @@ function sortIcon($col, $sort, $direction) {
                             {{-- Catégorie --}}
                             <td class="px-4 py-3 whitespace-nowrap">
                                 <span class="text-xs text-slate-600 dark:text-slate-300">{{ $t->category ?? '—' }}</span>
+                            </td>
+
+                            {{-- Support Level --}}
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <span class="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium {{ $lCfg['bg'] }} {{ $lCfg['text'] }}">
+                                    {{ $lCfg['label'] }}
+                                </span>
                             </td>
 
                             {{-- Priorité --}}
@@ -276,13 +303,13 @@ function sortIcon($col, $sort, $direction) {
                                         Voir
                                     </a>
 
-                                    @if($t->conversation_id)
-                                        <a href="{{ route('admin.ui.conversations.index', ['conversation_id' => $t->conversation_id]) }}"
-                                           class="inline-flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 px-2.5 py-1.5 text-[11px] font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
-                                            <svg class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M2 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5Zm3.293 1.293a1 1 0 0 1 1.414 0l3 3a1 1 0 0 1 0 1.414l-3 3a1 1 0 0 1-1.414-1.414L7.586 10 5.293 7.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd"/></svg>
-                                            Chat
-                                        </a>
-                                    @endif
+                                    {{-- Escalate Button --}}
+                                    <button type="button"
+                                            onclick="openEscalateModal({{ $t->id }}, '{{ $t->support_level ?? 'n1' }}')"
+                                            class="inline-flex items-center gap-1 rounded-lg border border-amber-200 dark:border-amber-800 px-2.5 py-1.5 text-[11px] font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition">
+                                        <svg class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clip-rule="evenodd"/></svg>
+                                        Escalader
+                                    </button>
 
                                     <form method="POST" action="{{ route('admin.ui.tickets.assignToMe', $t) }}">
                                         @csrf
@@ -308,7 +335,7 @@ function sortIcon($col, $sort, $direction) {
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="10" class="px-4 py-16 text-center">
+                            <td colspan="12" class="px-4 py-16 text-center">
                                 <div class="flex flex-col items-center gap-3">
                                     <div class="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
                                         <svg class="h-6 w-6 text-slate-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.5 3A2.5 2.5 0 0 0 3 5.5v9A2.5 2.5 0 0 0 5.5 17h9a2.5 2.5 0 0 0 2.5-2.5v-9A2.5 2.5 0 0 0 14.5 3h-9Zm1 3.75A.75.75 0 0 1 7.25 6h5.5a.75.75 0 0 1 0 1.5h-5.5a.75.75 0 0 1-.75-.75Zm0 3.25A.75.75 0 0 1 7.25 9.25h5.5a.75.75 0 0 1 0 1.5h-5.5A.75.75 0 0 1 6.5 10Zm.75 2.5h3.5a.75.75 0 0 1 0 1.5h-3.5a.75.75 0 0 1 0-1.5Z" clip-rule="evenodd"/></svg>
@@ -365,7 +392,123 @@ function sortIcon($col, $sort, $direction) {
             </div>
         @endif
     </div>
-
 </div>
-@endsection
 
+{{-- Escalate Modal --}}
+<div id="escalateModal" class="fixed inset-0 z-50 flex items-center justify-center hidden">
+    <div class="fixed inset-0 bg-black/60 backdrop-blur-sm" onclick="closeEscalateModal()"></div>
+    <div class="relative bg-white dark:bg-[#16181D] rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-lg mx-4 p-6 z-10">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold brand-font">Escalate Ticket</h3>
+            <button onclick="closeEscalateModal()" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"/></svg>
+            </button>
+        </div>
+
+        <form id="escalateForm" method="POST">
+            @csrf
+
+            <div class="space-y-4">
+                {{-- Current Level --}}
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Current Level</label>
+                    <p id="currentLevelDisplay" class="text-sm font-semibold text-slate-900 dark:text-white px-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-lg"></p>
+                </div>
+
+                {{-- Target Level --}}
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Target Level</label>
+                    <select name="to_level" id="targetLevel" required
+                            class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 dark:text-slate-200">
+                        <option value="n1">N1 - First Line Support</option>
+                        <option value="n2">N2 - Advanced Technical Support</option>
+                        <option value="n3">N3 - Expert Support</option>
+                        <option value="manager">Support Manager</option>
+                    </select>
+                </div>
+
+                {{-- Assignee --}}
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Assign To (optional)</label>
+                    <select name="assigned_to" class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 dark:text-slate-200">
+                        <option value="">Auto-assign to team member</option>
+                        @foreach($supportTeams as $team)
+                            <optgroup label="{{ $team->name }}">
+                                @foreach($team->members as $member)
+                                    <option value="{{ $member->id }}">{{ $member->name }}</option>
+                                @endforeach
+                            </optgroup>
+                        @endforeach
+                    </select>
+                </div>
+
+                {{-- Reason --}}
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Reason <span class="text-red-500">*</span></label>
+                    <textarea name="reason" id="escalateReason" rows="3" required minlength="5"
+                              class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 dark:text-slate-200"
+                              placeholder="e.g., Complex network issue, requires database expertise, security investigation..."></textarea>
+                </div>
+
+                {{-- Suggested reasons --}}
+                <div>
+                    <p class="text-xs font-medium text-slate-500 mb-2">Quick reasons:</p>
+                    <div class="flex flex-wrap gap-1.5">
+                        <button type="button" onclick="setReason('Complex network issue')"
+                                class="px-2 py-1 text-[10px] rounded-full border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                            Complex network issue
+                        </button>
+                        <button type="button" onclick="setReason('Requires database expertise')"
+                                class="px-2 py-1 text-[10px] rounded-full border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                            Requires database expertise
+                        </button>
+                        <button type="button" onclick="setReason('Security investigation')"
+                                class="px-2 py-1 text-[10px] rounded-full border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                            Security investigation
+                        </button>
+                        <button type="button" onclick="setReason('Infrastructure problem')"
+                                class="px-2 py-1 text-[10px] rounded-full border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                            Infrastructure problem
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3 mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
+                <button type="submit"
+                        class="px-6 py-2 rounded-lg text-sm font-semibold text-white bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 shadow-lg shadow-amber-500/30 transition">
+                    Escalate Ticket
+                </button>
+                <button type="button" onclick="closeEscalateModal()"
+                        class="px-6 py-2 rounded-lg text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
+                    Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@push('scripts')
+<script>
+function openEscalateModal(ticketId, currentLevel) {
+    document.getElementById('escalateForm').action = '/admin/tickets/' + ticketId + '/escalate';
+    document.getElementById('currentLevelDisplay').textContent = currentLevel.toUpperCase();
+    document.getElementById('escalateReason').value = '';
+    document.getElementById('escalateModal').classList.remove('hidden');
+}
+
+function closeEscalateModal() {
+    document.getElementById('escalateModal').classList.add('hidden');
+}
+
+function setReason(reason) {
+    document.getElementById('escalateReason').value = reason;
+}
+
+// Close on escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeEscalateModal();
+});
+</script>
+@endpush
+@endsection

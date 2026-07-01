@@ -14,6 +14,8 @@ class PermissionService
             'update_ticket',
             'close_ticket',
             'escalate_ticket',
+            'view_escalations',
+            'manage_escalations',
         ],
         'Customer Permissions' => [
             'contact_customer',

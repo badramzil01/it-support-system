@@ -52,6 +52,11 @@
                 <svg class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.5 3A2.5 2.5 0 0 0 3 5.5v9A2.5 2.5 0 0 0 5.5 17h9a2.5 2.5 0 0 0 2.5-2.5v-9A2.5 2.5 0 0 0 14.5 3h-9Zm1 3.75A.75.75 0 0 1 7.25 6h5.5a.75.75 0 0 1 0 1.5h-5.5a.75.75 0 0 1-.75-.75Zm0 3.25A.75.75 0 0 1 7.25 9.25h5.5a.75.75 0 0 1 0 1.5h-5.5A.75.75 0 0 1 6.5 10Zm.75 2.5h3.5a.75.75 0 0 1 0 1.5h-3.5a.75.75 0 0 1 0-1.5Z" clip-rule="evenodd"/></svg>
                 <span>Tickets</span>
             </a>
+
+            <a href="<?php echo e(route('admin.escalations.index')); ?>" class="nav-item <?php echo e(request()->routeIs('admin.escalations*') ? 'active' : ''); ?> flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition">
+                <svg class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clip-rule="evenodd"/></svg>
+                <span>Escalated Tickets</span>
+            </a>
         </div>
 
         
@@ -84,6 +89,11 @@
             <a href="<?php echo e(route('admin.ui.users.index')); ?>" class="nav-item <?php echo e(request()->routeIs('admin.ui.users.*') ? 'active' : ''); ?> flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition">
                 <svg class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor"><path d="M10 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-7 8a7 7 0 1 1 14 0 .75.75 0 0 1-.75.75H3.75A.75.75 0 0 1 3 17Z"/></svg>
                 <span>Utilisateurs</span>
+            </a>
+
+            <a href="<?php echo e(route('admin.support-teams.index')); ?>" class="nav-item <?php echo e(request()->routeIs('admin.support-teams.*') ? 'active' : ''); ?> flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition">
+                <svg class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 5.5A2.5 2.5 0 015.5 3h9A2.5 2.5 0 0117 5.5v9a2.5 2.5 0 01-2.5 2.5h-9A2.5 2.5 0 013 14.5v-9zM5.5 5a.5.5 0 00-.5.5v9a.5.5 0 00.5.5h9a.5.5 0 00.5-.5v-9a.5.5 0 00-.5-.5h-9zM7 7.5A.75.75 0 017.75 6.75h4.5a.75.75 0 010 1.5h-4.5A.75.75 0 017 7.5zm0 3A.75.75 0 017.75 9.75h4.5a.75.75 0 010 1.5h-4.5A.75.75 0 017 10.5z"/></svg>
+                <span>Support Teams</span>
             </a>
 
             <a href="<?php echo e(route('admin.ui.settings.index')); ?>" class="nav-item <?php echo e(request()->routeIs('admin.ui.settings.*') ? 'active' : ''); ?> flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition">

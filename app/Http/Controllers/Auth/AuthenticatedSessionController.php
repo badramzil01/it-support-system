@@ -32,18 +32,26 @@ class AuthenticatedSessionController extends Controller
 
         $user = Auth::user();
 
+        // Track last login
+        $user->update(['last_login_at' => now()]);
+
+        // Admin → Admin Dashboard
         if ($user->hasRole('admin')) {
             return redirect()->route('admin.dashboard');
         }
 
-        if ($user->hasRole('support')) {
+        // Support (N1/N2/N3) → Support Dashboard
+        if (
+            $user->hasRole('support') ||
+            $user->hasRole('support_n1') ||
+            $user->hasRole('support_n2') ||
+            $user->hasRole('support_n3')
+        ) {
             return redirect()->route('support.dashboard');
         }
 
-        if ($user->hasRole('client')) {
-            return redirect('/chat');
-        }
-
+        // All other users (client, employee) → Client Dashboard
+        return redirect()->route('client.dashboard');
     }
 
     /**

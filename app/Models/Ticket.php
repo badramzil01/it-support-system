@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
 
 class Ticket extends Model
 {
@@ -10,30 +11,43 @@ class Ticket extends Model
      * Champs autorisés
      */
     protected $fillable = [
-    'conversation_id',
-    'user_id',
-    'assigned_to',
-    'message_id',
-    'trigger_message_id',
-    'title',
-    'description',
-    'jira_ticket_id',
-    'solution',
-    'source',
-    'status',
-    'ticket_status',
-    'priority',
-    'category',
-    'confidence',
-    'feedback',
-    'is_urgent',
-    'is_escalated',
-    'has_image',
-    'image_url',
-    'mime_type',
-    'resolved_at',
-    'closed_at',
-	];
+        'conversation_id',
+        'user_id',
+        'assigned_to',
+        'message_id',
+        'trigger_message_id',
+        'title',
+        'description',
+        'jira_ticket_id',
+        'solution',
+        'source',
+        'status',
+        'ticket_status',
+        'priority',
+        'category',
+        'confidence',
+        'feedback',
+        'is_urgent',
+        'is_escalated',
+        'has_image',
+        'image_url',
+        'mime_type',
+        'resolved_at',
+        'closed_at',
+        'support_level',
+        'assigned_team',
+        'escalation_level',
+        'sla_deadline',
+        'escalated_at',
+        'last_response_at',
+        'sla_breached',
+        'previous_owner',
+        'escalation_reason',
+        // Escalade N1/N2
+        'escalated',
+        'escalated_by',
+        'resolved_by',
+    ];
     /**
      * Casts
      */
@@ -44,6 +58,11 @@ class Ticket extends Model
         'confidence'   => 'float',
         'resolved_at'  => 'datetime',
         'closed_at'    => 'datetime',
+        'sla_deadline' => 'datetime',
+        'escalated_at' => 'datetime',
+        'last_response_at' => 'datetime',
+        'sla_breached' => 'boolean',
+        'escalation_level' => 'integer',
     ];
 
     /*
@@ -97,11 +116,42 @@ class Ticket extends Model
         return $this->hasMany(Notification::class);
     }
 
+    /**
+     * Agent N1/N2 qui a escaladé le ticket.
+     */
+    public function escalatedByUser()
+    {
+        return $this->belongsTo(User::class, 'escalated_by');
+    }
+
+    /**
+     * Agent N1/N2 qui a résolu le ticket.
+     */
+    public function resolvedByUser()
+    {
+        return $this->belongsTo(User::class, 'resolved_by');
+    }
+
     /*
     |--------------------------------------------------------------------------
     | SCOPES
     |--------------------------------------------------------------------------
     */
+
+    public function scopeNotResolved($query)
+    {
+        return $query->whereNotIn('status', ['resolved', 'closed']);
+    }
+
+    public function scopeN1($query)
+    {
+        return $query->where('support_level', 'N1');
+    }
+
+    public function scopeN2($query)
+    {
+        return $query->where('support_level', 'N2');
+    }
 
     public function scopeOpen($query)
     {
@@ -160,6 +210,19 @@ class Ticket extends Model
         };
     }
 
+    /**
+     * Manual escalation history.
+     */
+    public function escalationHistory()
+    {
+        return $this->hasMany(TicketEscalation::class)->latest();
+    }
+
+    public function supportTeam()
+    {
+        return $this->belongsTo(SupportTeam::class, 'assigned_team', 'slug');
+    }
+
     /*
     |--------------------------------------------------------------------------
     | HELPERS
@@ -184,5 +247,50 @@ class Ticket extends Model
     public function isClosed()
     {
         return $this->status === 'closed';
+    }
+
+    /**
+     * Escalade le ticket de N1 vers N2.
+     */
+    public function escalateToN2(int $escalatedByUserId, string $reason): bool
+    {
+        if ($this->support_level === 'N2') {
+            return false;
+        }
+
+        $currentEscalationLevel = $this->escalation_level ?? 0;
+
+        // Créer l'historique d'escalade
+        \App\Models\TicketEscalation::create([
+            'ticket_id' => $this->id,
+            'from_level' => $this->support_level ?? 'N1',
+            'to_level' => 'N2',
+            'escalated_by' => $escalatedByUserId,
+            'reason' => $reason,
+        ]);
+
+        $updated = $this->update([
+            'support_level'     => 'N2',
+            'assigned_team'     => 'support_n2',
+            'escalation_level'  => $currentEscalationLevel + 1,
+            'is_escalated'      => true,
+            'escalated'         => true,
+            'escalated_by'      => $escalatedByUserId,
+            'escalated_at'      => now(),
+            'escalation_reason' => $reason,
+            'status'            => 'open',
+        ]);
+
+        if ($updated) {
+            Log::info('ticket.escalated_to_n2', [
+                'ticket_id'      => $this->id,
+                'escalated_by'   => $escalatedByUserId,
+                'reason'         => $reason,
+                'new_level'      => 'N2',
+                'escalation_lvl' => $currentEscalationLevel + 1,
+            ]);
+        }
+
+        return $updated;
     }
 }

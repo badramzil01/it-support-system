@@ -75,7 +75,7 @@
     </p>
 
     <div class="mt-4">
-        <a href="{{route('admin.settings.logs.download')}}"
+        <a href="{{route('admin.ui.settings.logs.download')}}"
            class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition">
             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none"
                  viewBox="0 0 24 24" stroke="currentColor">
